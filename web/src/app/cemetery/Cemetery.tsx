@@ -13,6 +13,7 @@ import { ago, date, tokenAmount, usd } from "@/lib/format";
 import { baseOf, obsOf, stateOf, termsOf } from "@/lib/rite";
 import { ownerIds, useWallets } from "@/lib/wallets";
 import register from "@/core/register-seed.json";
+import { Boards } from "./Boards";
 
 async function load() {
   const [stats, plots, graves, events] = await Promise.all([registry.stats(), registry.plots(0, 100), registry.graves(0, 24, true), registry.events()]);
@@ -98,6 +99,12 @@ export function Cemetery() {
             {stirring.map((p) => <StirringPlot key={p.id} p={p} />)}
           </div>
         )}
+      </section>
+
+      {/* The boards */}
+      <section className="mt-14" aria-label="Boards">
+        <h2 className="font-display text-3xl text-bone">The boards</h2>
+        <Boards plotsById={plotsById} />
       </section>
 
       {/* Fresh graves */}

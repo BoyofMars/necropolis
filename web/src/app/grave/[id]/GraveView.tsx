@@ -26,6 +26,7 @@ import { ago, compact, date, graveNo, tokenAmount, usd } from "@/lib/format";
 import { baseOf, obsOf, stateOf, termsOf } from "@/lib/rite";
 import { ownerIds, useWallets } from "@/lib/wallets";
 import { testPool } from "@/core/testnet";
+import { Candles } from "./Candles";
 import { Keeper } from "./Keeper";
 import { MarketProof, MPC_READ_CHECKS } from "./MarketProof";
 
@@ -133,6 +134,8 @@ export function GraveView({ id }: { id: number }) {
             </p>
             {g.epitaph && <p className="mt-4 font-display text-2xl italic text-bone-2">&ldquo;{g.epitaph}&rdquo;</p>}
           </div>
+
+          <Candles graveId={g.id} />
 
           <Panel className="p-6">
             <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4">
