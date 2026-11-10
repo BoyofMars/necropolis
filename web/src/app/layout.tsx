@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { BRAND } from "@/brand";
 import { Providers } from "@/components/Providers";
+import { ServiceWorker } from "@/components/ServiceWorker";
 import { Footer, Header, TabBar } from "@/components/Shell";
 import { ConnectProvider } from "@/lib/wallets";
 import "./globals.css";
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} — ${BRAND.tagline}`, description: BRAND.description },
   twitter: { card: "summary_large_image", title: `${BRAND.name} — ${BRAND.tagline}`, description: BRAND.description },
   appleWebApp: { capable: true, title: BRAND.name, statusBarStyle: "black-translucent" },
-  icons: { icon: "/icon.svg", apple: "/apple-icon.png" },
+  icons: { icon: "/icon.svg", apple: "/api/icon/180" },
 };
 
 export const viewport: Viewport = {
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
             <Footer />
             <TabBar />
+            <ServiceWorker />
           </ConnectProvider>
         </Providers>
       </body>
