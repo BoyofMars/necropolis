@@ -37,6 +37,18 @@ test("a grave page shows on-chain state and proof", async ({ page }) => {
   await expect(page.getByText("MPC attestation")).toBeVisible();
 });
 
+test("a wallet obituary renders with a share card, and bad addresses 404", async ({ page, request }) => {
+  // The devnet test wallet from the NGMI run: one coin still dead, three came back.
+  const wallet = "9wZiympr3GJQrqHyHW7TPEpFApVx7S4ZAHwbfhzxqibN";
+  await page.goto(`/obituary/sol-devnet/${wallet}`);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("The bags of");
+  await expect(page.getByRole("link", { name: "Share on X" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/came back/).first()).toBeVisible();
+  const card = await request.get(`/api/og/obituary/sol-devnet/${wallet}`);
+  expect(card.headers()["content-type"]).toContain("image/png");
+  expect((await page.goto("/obituary/sol/0xnot-a-solana-wallet"))?.status()).toBe(404);
+});
+
 test("unknown graves say so instead of erroring", async ({ page }) => {
   await page.goto("/grave/999999");
   await expect(page.getByText("No grave with this number exists yet.")).toBeVisible({ timeout: 20_000 });
