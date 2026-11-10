@@ -174,7 +174,20 @@ export function Scanner() {
                     : `${q.data.counts.total} tokens, all still breathing.`}
               </h2>
             </div>
-            <div className="text-xs text-bone-4">Scanned {new Date(q.data.scannedAt).toLocaleTimeString()}</div>
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              {q.data.counts.total > 0 && (
+                <Link
+                  href={`/obituary/${q.data.chain}/${encodeURIComponent(q.data.owner)}`}
+                  className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-ember/50 px-3.5 text-sm font-semibold text-ember hover:bg-ember/10"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M7 21V10a5 5 0 0 1 10 0v11M4 21h16M12 10v5M9.5 12.5h5" />
+                  </svg>
+                  Share the obituary
+                </Link>
+              )}
+              <div className="text-xs text-bone-4">Scanned {new Date(q.data.scannedAt).toLocaleTimeString()}</div>
+            </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Filter by condition">
@@ -221,6 +234,11 @@ export function Scanner() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                       <span className="font-semibold text-bone">${e.symbol}</span>
                       <ConditionTag condition={e.diagnosis.condition} />
+                      {e.risen && (
+                        <span title="Its Necropolis plot rose" className="rounded-full border border-ember/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ember">
+                          risen
+                        </span>
+                      )}
                       {e.testBag && <span className="text-[10px] uppercase tracking-wider text-fading">test bag</span>}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-bone-3">
