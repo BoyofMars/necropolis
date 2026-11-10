@@ -1,9 +1,11 @@
 /** Beat generators for the Pulse trace (pure, usable on server and client). */
 
+/**
+ * Absolute scale, so a dead coin looks dead next to a live one:
+ * under $100/day is a flatline, $1M/day is a full beat (log in between).
+ */
 export function beatsFromVolumes(volumes: number[], take = 48): number[] {
-  const v = volumes.slice(-take);
-  const max = Math.max(1, ...v);
-  return v.map((x) => (x <= 1 ? 0 : Math.log10(1 + x) / Math.log10(1 + max)));
+  return volumes.slice(-take).map((x) => (x < 100 ? 0 : Math.min(1, (Math.log10(x) - 2) / 4)));
 }
 
 export function syntheticBeats(state: "dead" | "stirring" | "alive" | "risen", n = 32, seed = 7): number[] {

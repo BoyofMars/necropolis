@@ -68,6 +68,10 @@ export interface Diagnosis {
   athAt?: number;
   drawdownFromAth?: number;
   peakDailyVolumeUsd?: number;
+  /** History starts after the token's launch (provider window), so peaks are window peaks */
+  historyTruncated: boolean;
+  /** Already dead on the first day of available history: daysDead is a lower bound */
+  deadBeforeRecords: boolean;
   /** Overrides / caveats applied, shown verbatim */
   notes: string[];
   /** Short epitaph-style summary line */
@@ -314,15 +318,34 @@ export function diagnose(dossier: TokenDossier, opts: DiagnoseOptions = {}): Dia
   const rawScore =
     evidence > 0 ? (known.reduce((s, c) => s + c.weight * (c.score as number), 0) / evidence) * 100 : undefined;
 
+  // --- was the history window cut off by the provider (e.g. 6 months keyless)?
+  const createdSecs = dossier.profile.createdAt ? Math.floor(dossier.profile.createdAt / 1000) : undefined;
+  const historyTruncated =
+    hasHistory && (createdSecs !== undefined ? hist[0].t - createdSecs > 3 * DAY : hist.length >= 180);
+
   // --- time of death: start of the final run of days below the dead-run floor
   let timeOfDeath: number | undefined;
+  let deadBeforeRecords = false;
   if (hasHistory && peak !== undefined) {
     const floor = Math.max(THRESHOLDS.deadRunVolumeFloor, peak * THRESHOLDS.deadRunPeakShare);
     let i = hist.length - 1;
     while (i >= 0 && hist[i].v <= floor) i--;
-    if (i < hist.length - 1) timeOfDeath = hist[i + 1].t;
+    if (i < hist.length - 1) {
+      // A death within the first week of a truncated window can't be dated honestly.
+      if (historyTruncated && i < 7) deadBeforeRecords = true;
+      else timeOfDeath = hist[i + 1].t;
+    }
   }
-  const daysDead = timeOfDeath !== undefined ? Math.round((today - timeOfDeath) / DAY) : undefined;
+  const daysDead = deadBeforeRecords
+    ? Math.round((today - hist[0].t) / DAY)
+    : timeOfDeath !== undefined
+      ? Math.round((today - timeOfDeath) / DAY)
+      : undefined;
+  if (historyTruncated) {
+    notes.push(
+      `Price history only covers the last ${hist.length} days, so peaks and drawdown are measured within that window.`,
+    );
+  }
 
   // --- condition with overrides
   let condition: Condition;
@@ -368,7 +391,14 @@ export function diagnose(dossier: TokenDossier, opts: DiagnoseOptions = {}): Dia
     notes.push("Triage only: price history not loaded, so drawdown and volume-decay are excluded.");
   }
 
-  const cause = causeOfDeath(dossier, hist, condition, { peak, timeOfDeath });
+  const cause =
+    (deadBeforeRecords || (historyTruncated && peakIndex(hist) === 0)) && (condition === "DEAD" || condition === "CRITICAL")
+      ? {
+          code: "UNDETERMINED" as const,
+          title: "Died before our records begin",
+          detail: `It was already dying when our ${hist.length}-day price record starts, so we won't guess how it died.`,
+        }
+      : causeOfDeath(dossier, hist, condition, { peak, timeOfDeath });
 
   return {
     modelVersion: MODEL_VERSION,
@@ -384,9 +414,17 @@ export function diagnose(dossier: TokenDossier, opts: DiagnoseOptions = {}): Dia
     athAt,
     drawdownFromAth: drawdown,
     peakDailyVolumeUsd: peak,
+    historyTruncated,
+    deadBeforeRecords,
     notes,
-    headline: headlineFor(condition, deathScore, daysDead),
+    headline: headlineFor(condition, deathScore, daysDead, deadBeforeRecords),
   };
+}
+
+function peakIndex(hist: Candle[]): number {
+  let best = 0;
+  for (let i = 1; i < hist.length; i++) if (hist[i].v > hist[best].v) best = i;
+  return best;
 }
 
 function causeOfDeath(
@@ -459,10 +497,10 @@ function causeOfDeath(
   };
 }
 
-function headlineFor(c: Condition, score?: number, daysDead?: number): string {
+function headlineFor(c: Condition, score?: number, daysDead?: number, lowerBound = false): string {
   switch (c) {
     case "DEAD":
-      return daysDead && daysDead > 0 ? `Clinically dead for ${daysDead} days` : "Clinically dead";
+      return daysDead && daysDead > 0 ? `Clinically dead for ${daysDead}${lowerBound ? "+" : ""} days` : "Clinically dead";
     case "CRITICAL":
       return "Critical: barely breathing";
     case "FADING":
