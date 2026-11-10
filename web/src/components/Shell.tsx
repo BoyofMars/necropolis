@@ -136,39 +136,3 @@ export function TabBar() {
     </nav>
   );
 }
-
-export function Footer() {
-  return (
-    <footer className="relative z-10 border-t border-line pb-[calc(var(--tabbar-h)+24px)] pt-10 md:pb-10">
-      <div className="mx-auto grid max-w-[1200px] gap-8 px-4 text-sm text-bone-3 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
-          <div className="flex items-center gap-2">
-            <Mark size={22} />
-            <span className="font-display text-lg text-bone">{BRAND.name}</span>
-          </div>
-          <p className="mt-3 max-w-sm leading-relaxed">
-            Dead memecoins become positions. Burials stay on their native chain in vaults only the NEAR contract can
-            sign for, verified by NEAR&rsquo;s MPC network.
-          </p>
-          <p className="mt-3 text-xs text-bone-4">
-            Testnet prototype. Not financial advice. Buried tokens only come back if their plot rises.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <div className="eyebrow">Product</div>
-          <Link className="block hover:text-bone" href="/cemetery">Cemetery</Link>
-          <Link className="block hover:text-bone" href="/discover">Register of the dead</Link>
-          <Link className="block hover:text-bone" href="/scan">Wallet scanner</Link>
-          <Link className="block hover:text-bone" href="/graves">My graves</Link>
-        </div>
-        <div className="space-y-2">
-          <div className="eyebrow">Mechanics</div>
-          <Link className="block hover:text-bone" href="/how">How it works</Link>
-          <Link className="block hover:text-bone" href="/how#methodology">Death methodology</Link>
-          <Link className="block hover:text-bone" href="/proof">Proof &amp; verification</Link>
-          <a className="block hover:text-bone" href={BRAND.repo} target="_blank" rel="noreferrer">Source code</a>
-        </div>
-      </div>
-    </footer>
-  );
-}

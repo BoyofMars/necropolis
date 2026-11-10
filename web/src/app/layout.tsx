@@ -4,7 +4,8 @@ import { BRAND } from "@/brand";
 import { Providers } from "@/components/Providers";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { THEME_BOOT_SCRIPT } from "@/components/ThemeToggle";
-import { Footer, Header, TabBar } from "@/components/Shell";
+import { Footer } from "@/components/Footer";
+import { Header, TabBar } from "@/components/Shell";
 import { ConnectProvider } from "@/lib/wallets";
 import "./globals.css";
 
