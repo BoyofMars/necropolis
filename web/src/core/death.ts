@@ -331,7 +331,8 @@ export function diagnose(dossier: TokenDossier, opts: DiagnoseOptions = {}): Dia
     let i = hist.length - 1;
     while (i >= 0 && hist[i].v <= floor) i--;
     if (i < hist.length - 1) {
-      if (i < 0 && historyTruncated) deadBeforeRecords = true;
+      // A death within the first week of a truncated window can't be dated honestly.
+      if (historyTruncated && i < 7) deadBeforeRecords = true;
       else timeOfDeath = hist[i + 1].t;
     }
   }

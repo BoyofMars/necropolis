@@ -238,7 +238,41 @@ export function solanaRpcUrl(chain: "sol" | "sol-devnet") {
   return SOL_RPC[chain];
 }
 
+interface JupHoldings {
+  tokens?: Record<string, { account: string; amount: string; uiAmount: number; decimals: number; programId: string }[]>;
+}
+
+/** Mainnet fallback when the public RPC rate-limits us: Jupiter's holdings endpoint. */
+async function jupiterHoldings(owner: string): Promise<Holding[]> {
+  const res = await cached(`jupbal:${owner}`, 20_000, async () => {
+    await throttle("jupiter", 30);
+    return getJson<JupHoldings>("jupiter", `https://lite-api.jup.ag/ultra/v1/holdings/${owner}`);
+  });
+  const out: Holding[] = [];
+  for (const [mint, accts] of Object.entries(res.tokens ?? {})) {
+    const raw = accts.reduce((s, a) => s + BigInt(a.amount), 0n);
+    if (raw === 0n) continue;
+    out.push({
+      address: mint,
+      amountRaw: raw.toString(),
+      decimals: accts[0].decimals,
+      uiAmount: accts.reduce((s, a) => s + a.uiAmount, 0),
+      tokenProgram: accts[0].programId,
+    });
+  }
+  return out;
+}
+
 export async function solanaHoldings(chain: "sol" | "sol-devnet", owner: string): Promise<Holding[]> {
+  try {
+    return await solanaHoldingsRpc(chain, owner);
+  } catch (e) {
+    if (chain !== "sol") throw e;
+    return jupiterHoldings(owner);
+  }
+}
+
+async function solanaHoldingsRpc(chain: "sol" | "sol-devnet", owner: string): Promise<Holding[]> {
   const url = SOL_RPC[chain];
   const programs = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
   type Acc = {
@@ -286,13 +320,66 @@ interface BlockscoutTokenItem {
   };
 }
 
+/**
+ * Base balances: keyless Blockscout first; if Cloudflare challenges us, fall
+ * back to Blockscout PRO or Alchemy when a (free-tier) key is configured.
+ */
 export async function baseHoldings(chain: "base" | "base-sepolia", owner: string): Promise<Holding[]> {
-  const host = chain === "base" ? "base.blockscout.com" : "base-sepolia.blockscout.com";
+  try {
+    return await blockscoutHoldings(chain, owner);
+  } catch (e) {
+    if (process.env.BLOCKSCOUT_API_KEY) {
+      try {
+        return await blockscoutHoldings(chain, owner, process.env.BLOCKSCOUT_API_KEY);
+      } catch {
+        /* fall through */
+      }
+    }
+    if (process.env.ALCHEMY_API_KEY) return alchemyHoldings(chain, owner, process.env.ALCHEMY_API_KEY);
+    throw e;
+  }
+}
+
+async function alchemyHoldings(chain: "base" | "base-sepolia", owner: string, key: string): Promise<Holding[]> {
+  const url = `https://${chain === "base" ? "base-mainnet" : "base-sepolia"}.g.alchemy.com/v2/${key}`;
+  const bal = await cached(`alc:${chain}:${owner}`, 30_000, () =>
+    rpc<{ tokenBalances: { contractAddress: string; tokenBalance: string }[] }>("alchemy", url, "alchemy_getTokenBalances", [owner, "erc20"]),
+  );
+  const nonzero = bal.tokenBalances.filter((b) => b.tokenBalance && BigInt(b.tokenBalance) > 0n).slice(0, 80);
+  const metas = await Promise.all(
+    nonzero.map((b) =>
+      cached(`alcmeta:${chain}:${b.contractAddress}`, 86_400_000, () =>
+        rpc<{ name?: string; symbol?: string; decimals?: number; logo?: string }>("alchemy", url, "alchemy_getTokenMetadata", [b.contractAddress]),
+      ).catch(() => ({}) as { name?: string; symbol?: string; decimals?: number; logo?: string }),
+    ),
+  );
+  return nonzero.map((b, i) => {
+    const m = metas[i];
+    const decimals = m.decimals ?? 18;
+    const raw = BigInt(b.tokenBalance);
+    return {
+      address: b.contractAddress.toLowerCase(),
+      amountRaw: raw.toString(),
+      decimals,
+      uiAmount: Number(raw) / 10 ** decimals,
+      name: m.name,
+      symbol: m.symbol,
+      icon: m.logo ?? undefined,
+    };
+  });
+}
+
+async function blockscoutHoldings(chain: "base" | "base-sepolia", owner: string, proKey?: string): Promise<Holding[]> {
+  const host = proKey
+    ? `api.blockscout.com/${chain === "base" ? "8453" : "84532"}`
+    : chain === "base"
+      ? "base.blockscout.com"
+      : "base-sepolia.blockscout.com";
   const out: Holding[] = [];
   type Page = { items: BlockscoutTokenItem[]; next_page_params: Record<string, string> | null };
   let next: Record<string, string> | null = null;
   for (let page = 0; page < 4; page++) {
-    const qs: URLSearchParams = new URLSearchParams({ type: "ERC-20", ...(next ?? {}) });
+    const qs: URLSearchParams = new URLSearchParams({ type: "ERC-20", ...(next ?? {}), ...(proKey ? { apikey: proKey } : {}) });
     const res: Page = await cached<Page>(`bs:${chain}:${owner}:${qs}`, 30_000, () =>
       getJson<Page>(
         "blockscout",
