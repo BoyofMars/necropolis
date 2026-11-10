@@ -44,10 +44,91 @@
 
   --header-h: 64px;
   --tabbar-h: 68px;
+
+  --on-ember: #1a1206;
+  --row-hover: rgba(236, 230, 216, 0.025);
+  --ember-text-shadow: 0 0 24px rgba(240, 166, 60, 0.35);
+  /* simulator series — validated for CVD + contrast on the dark surface */
+  --chart-owners: #c97d1e;
+  --chart-ossuary: #3fa585;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-opacity: 0.05;
   color-scheme: dark;
 }
 
+/*
+ * Light theme: limestone paper, near-black ink, ember deepened so links and
+ * labels keep >= 4.5:1. Applied by explicit choice (data-theme="light") or by
+ * the OS when the visitor hasn't chosen (no data-theme="dark").
+ */
+:root[data-theme="light"] {
+  --loam: #f4efe5;
+  --loam-1: #fbf8f2;
+  --loam-2: #efe8db;
+  --loam-3: #e6ddcc;
+  --loam-4: #d8ccb6;
+  --line: #e0d6c4;
+  --line-strong: #c4b79f;
+  --bone: #1c1813;
+  --bone-2: #463f35;
+  --bone-3: #655d50;
+  --bone-4: #7c7365;
+  --ember: #9c5208;
+  --ember-bright: #b8650f;
+  --ember-deep: #7a4106;
+  --ember-glow: rgba(168, 90, 10, 0.14);
+  --dead: #6b655b;
+  --critical: #a24e39;
+  --fading: #85661f;
+  --alive: #2a7a60;
+  --unknown: #7c7365;
+  --danger: #b23a2c;
+  --on-ember: #fffaf0;
+  --row-hover: rgba(28, 24, 19, 0.035);
+  --ember-text-shadow: none;
+  --chart-owners: #b86e12;
+  --chart-ossuary: #2f9a7b;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .18 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-opacity: 0.045;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --loam: #f4efe5;
+    --loam-1: #fbf8f2;
+    --loam-2: #efe8db;
+    --loam-3: #e6ddcc;
+    --loam-4: #d8ccb6;
+    --line: #e0d6c4;
+    --line-strong: #c4b79f;
+    --bone: #1c1813;
+    --bone-2: #463f35;
+    --bone-3: #655d50;
+    --bone-4: #7c7365;
+    --ember: #9c5208;
+    --ember-bright: #b8650f;
+    --ember-deep: #7a4106;
+    --ember-glow: rgba(168, 90, 10, 0.14);
+    --dead: #6b655b;
+    --critical: #a24e39;
+    --fading: #85661f;
+    --alive: #2a7a60;
+    --unknown: #7c7365;
+    --danger: #b23a2c;
+    --on-ember: #fffaf0;
+    --row-hover: rgba(28, 24, 19, 0.035);
+    --ember-text-shadow: none;
+    --chart-owners: #b86e12;
+    --chart-ossuary: #2f9a7b;
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .18 0 0 0 0 .14 0 0 0 0 .1 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --grain-opacity: 0.045;
+    color-scheme: light;
+  }
+}
+
 @theme inline {
+  --color-on-ember: var(--on-ember);
   --color-loam: var(--loam);
   --color-loam-1: var(--loam-1);
   --color-loam-2: var(--loam-2);
@@ -96,8 +177,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: var(--grain-opacity);
+  background-image: var(--grain);
 }
 
 ::selection {
@@ -145,7 +226,7 @@ body::before {
   border-bottom: 1px solid var(--line);
 }
 .ledger-row:hover {
-  background: linear-gradient(90deg, transparent, rgba(236, 230, 216, 0.025), transparent);
+  background: linear-gradient(90deg, transparent, var(--row-hover), transparent);
 }
 
 /* Headstone silhouette used by grave cards */
@@ -155,7 +236,7 @@ body::before {
 
 .ember-text {
   color: var(--ember);
-  text-shadow: 0 0 24px rgba(240, 166, 60, 0.35);
+  text-shadow: var(--ember-text-shadow);
 }
 
 @keyframes flicker {

@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { cx } from "@/components/ui";
 import { SCENARIOS, simulate } from "@/core/simulation";
 
-// Validated with the dataviz palette checker against the dark surface #121110.
-const OWNERS = "#c97d1e";
-const OSSUARY = "#3fa585";
+// Per-theme series colours (globals.css); each pair validated for CVD separation
+// and contrast against its own surface with the dataviz palette checker.
+const OWNERS = "var(--chart-owners)";
+const OSSUARY = "var(--chart-ossuary)";
 
 const k = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}k` : `$${Math.round(n)}`);
 

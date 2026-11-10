@@ -394,7 +394,7 @@ function ShareButton({ id, symbol, stage }: { id: number; symbol: string; stage:
   return (
     <>
       <a
-        className="inline-flex h-10 items-center rounded-[10px] bg-ember px-4 text-sm font-semibold text-[#1a1206] hover:bg-ember-bright"
+        className="inline-flex h-10 items-center rounded-[10px] bg-ember px-4 text-sm font-semibold text-on-ember hover:bg-ember-bright"
         href={`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`}
         target="_blank"
         rel="noreferrer"

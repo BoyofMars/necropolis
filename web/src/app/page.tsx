@@ -222,7 +222,7 @@ export default function Landing() {
             <Reveal className="lg:col-span-2">
               <div className="h-full rounded-[18px] border border-line bg-loam-1 p-6">
                 <div className="flex h-10 overflow-hidden rounded-full border border-line-strong">
-                  <div className="flex w-[80%] items-center bg-ember/90 px-4 text-sm font-bold text-[#1a1206]">80% back to the owner</div>
+                  <div className="flex w-[80%] items-center bg-ember/90 px-4 text-sm font-bold text-on-ember">80% back to the owner</div>
                   <div className="flex w-[18%] items-center justify-center bg-ember-deep/60 text-xs font-semibold text-bone">18% ossuary</div>
                   <div className="flex w-[2%] items-center justify-center bg-loam-4" title="2% upkeep" />
                 </div>

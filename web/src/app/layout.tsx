@@ -3,7 +3,9 @@ import { Cormorant_Garamond, Hanken_Grotesk, JetBrains_Mono } from "next/font/go
 import { BRAND } from "@/brand";
 import { Providers } from "@/components/Providers";
 import { ServiceWorker } from "@/components/ServiceWorker";
-import { Footer, Header, TabBar } from "@/components/Shell";
+import { THEME_BOOT_SCRIPT } from "@/components/ThemeToggle";
+import { Footer } from "@/components/Footer";
+import { Header, TabBar } from "@/components/Shell";
 import { ConnectProvider } from "@/lib/wallets";
 import "./globals.css";
 
@@ -43,7 +45,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0c0b0a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4efe5" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0b0a" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -51,11 +56,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${ui.variable} ${data.variable}`}>
+    <html lang="en" className={`${display.variable} ${ui.variable} ${data.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Apply an explicit theme choice before first paint (no flash). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>
         <a
           href="#main"
-          className="sr-only z-[100] rounded bg-ember px-3 py-2 text-[#1a1206] focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+          className="sr-only z-[100] rounded bg-ember px-3 py-2 text-on-ember focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
         >
           Skip to content
         </a>
