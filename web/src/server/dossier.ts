@@ -1,6 +1,7 @@
 import type { ChainId, TokenRef } from "@/core/chains";
 import { CHAINS, normalizeToken } from "@/core/chains";
 import { diagnose, type Diagnosis } from "@/core/death";
+import { registry } from "@/core/near";
 import { simulatedDossier, testBag, TEST_BAGS } from "@/core/testnet";
 import type { TokenDossier } from "@/core/vitals";
 import { cached } from "./http";
@@ -95,6 +96,8 @@ export interface ScanEntry {
     reasons: { label: string; measured?: string; score?: number }[];
   };
   testBag?: boolean;
+  /** this token's Necropolis plot has risen: it came back */
+  risen?: boolean;
 }
 
 export interface ScanResult {
@@ -155,6 +158,13 @@ export async function scanWallet(chain: ChainId, owner: string): Promise<ScanRes
       entries.push(entryFor(h, dossier, diagnose(dossier), false));
     }
   }
+  // A token whose Necropolis plot has risen came back from the dead, whatever
+  // its (possibly simulated) market history says.
+  const risen = await registry
+    .plots(0, 200)
+    .then((ps) => new Set(ps.filter((p) => p.state.kind === "RISEN" && p.chain === chain).map((p) => p.token)))
+    .catch(() => new Set<string>());
+  for (const e of entries) if (risen.has(e.address)) e.risen = true;
   const order = { DEAD: 0, CRITICAL: 1, FADING: 2, UNKNOWN: 3, ALIVE: 4 } as const;
   entries.sort((a, b) => order[a.diagnosis.condition] - order[b.diagnosis.condition] || (b.diagnosis.deathScore ?? 0) - (a.diagnosis.deathScore ?? 0));
   const counts = { total: entries.length, dead: 0, critical: 0, fading: 0, alive: 0, unknown: 0 };
