@@ -4,6 +4,9 @@
  * verification on NEAR) → séance → rising → raise (MPC-signed payout).
  *
  *   npx tsx scripts/e2e-solana.ts [bury|seance|raise|all] [--grave <id>] [--app http://localhost:3000]
+ *   npx tsx scripts/e2e-solana.ts claim --grave <id> --event <id>   (ossuary share)
+ *   npx tsx scripts/e2e-solana.ts owner --grave <id>                (wallet-signed epitaph)
+ *   --user <name> picks a separate test wallet (.e2e-<name>.json)
  *
  * The test user's key lives in .e2e-user.json (gitignored). It never needs SOL:
  * the Sexton pays fees.
@@ -12,7 +15,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import bs58 from "bs58";
-import { registry } from "../src/core/near";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { actionMessage, registry } from "../src/core/near";
 
 const args = process.argv.slice(2);
 const stage = args.find((a) => !a.startsWith("--") && !/^\d+$/.test(a) && !a.startsWith("http")) ?? "all";
@@ -25,7 +29,9 @@ const SYMBOL = flag("symbol") ?? "FUMBLE";
 const conn = new Connection("https://api.devnet.solana.com", "confirmed");
 
 function user(): Keypair {
-  const p = ".e2e-user.json";
+  // --user <name> keeps several test wallets apart (.e2e-<name>.json, gitignored)
+  const name = flag("user");
+  const p = name ? `.e2e-${name}.json` : ".e2e-user.json";
   if (existsSync(p)) return Keypair.fromSecretKey(bs58.decode(JSON.parse(readFileSync(p, "utf8")).secret));
   const k = Keypair.generate();
   writeFileSync(p, JSON.stringify({ secret: bs58.encode(k.secretKey) }));
@@ -125,8 +131,65 @@ async function raise(u: Keypair, graveId: number, mint: string) {
   log(`user ${SYMBOL} balance: ${before} → ${after}`);
 }
 
+/** Claim a resting grave's ossuary share of another plot's rising. */
+async function claim(u: Keypair, graveId: number, eventId: number) {
+  const ev = (await registry.events()).find((e) => e.id === eventId);
+  if (!ev) throw new Error(`event ${eventId} not found`);
+  const share = await registry.share(graveId, eventId);
+  log(`share of event ${eventId} ($${ev.symbol}) for grave ${graveId}:`, JSON.stringify(share));
+  const before = await tokenBalance(u.publicKey, ev.token);
+  const r = await call<{ txs: string[]; nearTx?: string }>("/api/claim", { graveId, eventId });
+  log("claim near tx", r.nearTx, "solana txs", r.txs.join(", "));
+  await sleep(8_000);
+  const after = await tokenBalance(u.publicKey, ev.token);
+  log(`grave ${graveId} owner $${ev.symbol}: ${before} → ${after} (+${after - before})`);
+}
+
+/**
+ * Wallet-signed owner action through the relay, plus the two attacks it must
+ * refuse: a signature from the wrong key, and a replay of a used signature.
+ */
+async function owner(u: Keypair, graveId: number) {
+  const g = await registry.grave(graveId);
+  if (!g) throw new Error(`grave ${graveId} not found`);
+  const ownerId = Buffer.from(u.publicKey.toBytes()).toString("hex");
+  if (g.owner_id !== ownerId) throw new Error(`this user (${ownerId}) does not own grave ${graveId} (${g.owner_id})`);
+  const epitaph = `Signed by its keeper, ${new Date().toISOString().slice(0, 16)}Z.`;
+  const nonce = Number(await registry.nonce(ownerId));
+  const message = actionMessage("set_epitaph", graveId, [["epitaph", epitaph]], nonce);
+  const sign = (secret: Uint8Array) => bs58.encode(ed25519.sign(new TextEncoder().encode(message), secret.slice(0, 32)));
+
+  const forged = await call("/api/owner", { action: "set_epitaph", graveId, value: epitaph, nonce, signature: sign(Keypair.generate().secretKey) }).then(
+    () => "ACCEPTED (bad)",
+    (e: Error) => `refused: ${e.message}`,
+  );
+  log("forged signature →", forged);
+
+  const signature = sign(u.secretKey);
+  const r = await call<{ nearTx: string }>("/api/owner", { action: "set_epitaph", graveId, value: epitaph, nonce, signature });
+  log("signed epitaph → near tx", r.nearTx);
+
+  const replay = await call("/api/owner", { action: "set_epitaph", graveId, value: epitaph, nonce, signature }).then(
+    () => "ACCEPTED (bad)",
+    (e: Error) => `refused: ${e.message}`,
+  );
+  log("replayed signature →", replay);
+
+  const after = await registry.grave(graveId);
+  log("epitaph on NEAR:", JSON.stringify(after?.epitaph), "nonce", nonce, "→", await registry.nonce(ownerId));
+  if (after?.epitaph !== epitaph || forged.startsWith("ACCEPTED") || replay.startsWith("ACCEPTED")) throw new Error("owner action check failed");
+}
+
 (async () => {
   const u = user();
+  if (stage === "claim") {
+    await claim(u, Number(flag("grave")), Number(flag("event")));
+    return;
+  }
+  if (stage === "owner") {
+    await owner(u, Number(flag("grave")));
+    return;
+  }
   let graveId = flag("grave") ? Number(flag("grave")) : undefined;
   if (stage === "bury" || stage === "all") graveId = await bury(u);
   log("grave", graveId);
