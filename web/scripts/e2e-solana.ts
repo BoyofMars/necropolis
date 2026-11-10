@@ -165,7 +165,7 @@ async function owner(u: Keypair, graveId: number) {
   if (!g) throw new Error(`grave ${graveId} not found`);
   const ownerId = Buffer.from(u.publicKey.toBytes()).toString("hex");
   if (g.owner_id !== ownerId) throw new Error(`this user (${ownerId}) does not own grave ${graveId} (${g.owner_id})`);
-  const epitaph = `Signed by its keeper, ${new Date().toISOString().slice(0, 16)}Z.`;
+  const epitaph = flag("epitaph") ?? `Signed by its keeper, ${new Date().toISOString().slice(0, 16)}Z.`;
   const nonce = Number(await registry.nonce(ownerId));
   const message = actionMessage("set_epitaph", graveId, [["epitaph", epitaph]], nonce);
   const sign = (secret: Uint8Array) => bs58.encode(ed25519.sign(new TextEncoder().encode(message), secret.slice(0, 32)));
