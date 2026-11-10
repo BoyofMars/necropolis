@@ -1,26 +1,214 @@
 @import "tailwindcss";
 
+/*
+ * Bagyard design tokens.
+ * Loam (warm near-black) surfaces, bone text, one living accent: candle ember.
+ * Condition hues are desaturated on purpose; only resurrection gets to glow.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --loam: #0c0b0a;
+  --loam-1: #121110;
+  --loam-2: #191714;
+  --loam-3: #221f1b;
+  --loam-4: #2b2823;
+  --line: #2c2924;
+  --line-strong: #46413a;
+
+  --bone: #ece6d8;
+  --bone-2: #bdb5a4;
+  --bone-3: #8e8676;
+  --bone-4: #6b6458;
+
+  --ember: #f0a63c;
+  --ember-bright: #ffcd7d;
+  --ember-deep: #a8681c;
+  --ember-glow: rgba(240, 166, 60, 0.18);
+
+  --dead: #8c867c;
+  --critical: #c98472;
+  --fading: #bca067;
+  --alive: #86bba8;
+  --unknown: #6b6458;
+  --danger: #e2685a;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 420ms;
+  --dur-4: 900ms;
+
+  --header-h: 64px;
+  --tabbar-h: 68px;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-loam: var(--loam);
+  --color-loam-1: var(--loam-1);
+  --color-loam-2: var(--loam-2);
+  --color-loam-3: var(--loam-3);
+  --color-loam-4: var(--loam-4);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-bone: var(--bone);
+  --color-bone-2: var(--bone-2);
+  --color-bone-3: var(--bone-3);
+  --color-bone-4: var(--bone-4);
+  --color-ember: var(--ember);
+  --color-ember-bright: var(--ember-bright);
+  --color-ember-deep: var(--ember-deep);
+  --color-dead: var(--dead);
+  --color-critical: var(--critical);
+  --color-fading: var(--fading);
+  --color-alive: var(--alive);
+  --color-unknown: var(--unknown);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-data), ui-monospace, SFMono-Regular, monospace;
+  --breakpoint-xs: 420px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--loam);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--loam);
+  color: var(--bone);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+}
+
+/* Subtle soil grain. Pure CSS/SVG, no image request. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--ember-glow);
+  color: var(--ember-bright);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-feature-settings: "lnum", "kern";
+  letter-spacing: -0.01em;
+}
+
+.inscription {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.18em;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bone-3);
+  font-weight: 600;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.hairline {
+  border-color: var(--line);
+}
+
+/* Ruled-ledger rows for the Register */
+.ledger-row {
+  border-bottom: 1px solid var(--line);
+}
+.ledger-row:hover {
+  background: linear-gradient(90deg, transparent, rgba(236, 230, 216, 0.025), transparent);
+}
+
+/* Headstone silhouette used by grave cards */
+.stele {
+  border-radius: 999px 999px var(--radius) var(--radius) / 120px 120px var(--radius) var(--radius);
+}
+
+.ember-text {
+  color: var(--ember);
+  text-shadow: 0 0 24px rgba(240, 166, 60, 0.35);
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  42% { opacity: 0.86; transform: scaleY(0.94); }
+  60% { opacity: 0.95; transform: scaleY(1.04); }
+}
+.candle-flame {
+  animation: flicker 2.6s var(--ease-in-out) infinite;
+  transform-origin: 50% 100%;
+}
+
+@keyframes heartbeat-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 166, 60, 0); }
+  30% { box-shadow: 0 0 0 6px rgba(240, 166, 60, 0.12); }
+}
+.stirring-glow {
+  animation: heartbeat-glow 1.8s var(--ease-out) infinite;
+}
+
+@keyframes skeleton {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--loam-2) 0, var(--loam-3) 40%, var(--loam-2) 80%) no-repeat;
+  background-size: 200px 100%;
+  background-color: var(--loam-2);
+  animation: skeleton 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Safe areas for the installed PWA */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
