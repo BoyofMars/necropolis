@@ -74,10 +74,12 @@ export interface BaseLogRequest {
 
 export interface SolanaAccountRequest {
   chain: "Solana";
-  /** base58 signature decoded to 64 bytes, as hex */
+  /** base58 signature decoded to 64 bytes, as hex. The anchor: it must exist
+   *  and have succeeded. Accounts are read at their *current* state, at a slot
+   *  no earlier than this transaction's. */
   txSignatureHex: string;
-  /** account pubkey (32 bytes) as hex */
-  accountHex: string;
+  /** account pubkeys (32 bytes each) as hex, one AccountState extractor each */
+  accountsHex: string[];
   finality: SvmFinality;
 }
 
@@ -116,8 +118,8 @@ export function encodeRequest(w: BorshWriter, req: ForeignRequest) {
     w.u8(RPC_VARIANT.Solana);
     w.fixed(hx(req.txSignatureHex), 64);
     w.u8(SVM_FINALITY[req.finality]);
-    w.u32(1); // extractors: one AccountState extractor
-    w.u8(2).fixed(hx(req.accountHex), 32); // SvmExtractor::AccountState = 2
+    w.u32(req.accountsHex.length); // extractors: one AccountState per account
+    for (const a of req.accountsHex) w.u8(2).fixed(hx(a), 32); // SvmExtractor::AccountState = 2
   }
 }
 
@@ -143,18 +145,22 @@ export function encodeSvmAccount(w: BorshWriter, acc: SvmAccountValue) {
   w.bytes(hx(acc.dataHex));
 }
 
-export function payloadBytes(req: ForeignRequest, value: EvmLogValue | SvmAccountValue): Uint8Array {
+/** One value per extractor, in request order. */
+export function payloadBytes(req: ForeignRequest, values: EvmLogValue | SvmAccountValue | (EvmLogValue | SvmAccountValue)[]): Uint8Array {
+  const vs = Array.isArray(values) ? values : [values];
   const w = new BorshWriter();
   w.u8(0); // ForeignTxSignPayload::V1
   encodeRequest(w, req);
-  w.u32(1); // values: Vec<ExtractedValue> with one entry
-  if (req.chain === "Base") encodeEvmLog(w, value as EvmLogValue);
-  else encodeSvmAccount(w, value as SvmAccountValue);
+  w.u32(vs.length); // values: Vec<ExtractedValue>
+  for (const v of vs) {
+    if (req.chain === "Base") encodeEvmLog(w, v as EvmLogValue);
+    else encodeSvmAccount(w, v as SvmAccountValue);
+  }
   return w.toBytes();
 }
 
-export function expectedPayloadHash(req: ForeignRequest, value: EvmLogValue | SvmAccountValue): string {
-  return bytesToHex(sha256(payloadBytes(req, value)));
+export function expectedPayloadHash(req: ForeignRequest, values: EvmLogValue | SvmAccountValue | (EvmLogValue | SvmAccountValue)[]): string {
+  return bytesToHex(sha256(payloadBytes(req, values)));
 }
 
 /** JSON args for `verify_foreign_transaction` on the MPC signer contract. */
@@ -172,7 +178,7 @@ export function verifyArgs(req: ForeignRequest, expectedHash?: string, domainId 
           Solana: {
             tx_id: req.txSignatureHex.toLowerCase(),
             finality: req.finality,
-            extractors: [{ AccountState: { pubkey: req.accountHex.toLowerCase() } }],
+            extractors: req.accountsHex.map((a) => ({ AccountState: { pubkey: a.toLowerCase() } })),
           },
         };
   return {
