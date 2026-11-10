@@ -49,6 +49,16 @@ test("a wallet obituary renders with a share card, and bad addresses 404", async
   expect((await page.goto("/obituary/sol/0xnot-a-solana-wallet"))?.status()).toBe(404);
 });
 
+test("the cemetery boards read candles and grave values from NEAR", async ({ page, request }) => {
+  await page.goto("/cemetery");
+  await expect(page.getByRole("heading", { name: "Most mourned" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Biggest graves" })).toBeVisible();
+  await expect(page.getByText(/candles? lit, each signed by a wallet/)).toBeVisible({ timeout: 20_000 });
+  // the relay refuses a candle whose signature doesn't match the wallet
+  const forged = await request.post("/api/candle", { data: { graveId: 0, mourner: "ab".repeat(32), signature: "1".repeat(88) } });
+  expect(forged.status()).toBe(400);
+});
+
 test("unknown graves say so instead of erroring", async ({ page }) => {
   await page.goto("/grave/999999");
   await expect(page.getByText("No grave with this number exists yet.")).toBeVisible({ timeout: 20_000 });

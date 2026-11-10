@@ -6,6 +6,7 @@
  *   npx tsx scripts/e2e-solana.ts [bury|seance|raise|all] [--grave <id>] [--app http://localhost:3000]
  *   npx tsx scripts/e2e-solana.ts claim --grave <id> --event <id>   (ossuary share)
  *   npx tsx scripts/e2e-solana.ts owner --grave <id>                (wallet-signed epitaph)
+ *   npx tsx scripts/e2e-solana.ts candle --grave <id>[,<id>…]        (wallet-signed candles)
  *   --user <name> picks a separate test wallet (.e2e-<name>.json)
  *
  * The test user's key lives in .e2e-user.json (gitignored). It never needs SOL:
@@ -16,7 +17,7 @@ import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import bs58 from "bs58";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { actionMessage, registry } from "../src/core/near";
+import { actionMessage, candleMessage, registry } from "../src/core/near";
 
 const args = process.argv.slice(2);
 const stage = args.find((a) => !a.startsWith("--") && !/^\d+$/.test(a) && !a.startsWith("http")) ?? "all";
@@ -190,8 +191,27 @@ async function owner(u: Keypair, graveId: number) {
   if (after?.epitaph !== epitaph || forged.startsWith("ACCEPTED") || replay.startsWith("ACCEPTED")) throw new Error("owner action check failed");
 }
 
+/** Light a wallet-signed candle on a grave, and check that a forged one and a second one are refused. */
+async function candle(u: Keypair, graveId: number) {
+  const mourner = Buffer.from(u.publicKey.toBytes()).toString("hex");
+  const message = candleMessage(graveId, mourner);
+  const sign = (secret: Uint8Array) => bs58.encode(ed25519.sign(new TextEncoder().encode(message), secret.slice(0, 32)));
+  const refused = (p: Promise<unknown>) => p.then(() => "ACCEPTED (bad)", (e: Error) => `refused: ${e.message}`);
+  const forged = await refused(call("/api/candle", { graveId, mourner, signature: sign(Keypair.generate().secretKey) }));
+  log("forged candle →", forged);
+  const r = await call<{ candles: number; nearTx: string }>("/api/candle", { graveId, mourner, signature: sign(u.secretKey) });
+  log(`candle lit on grave ${graveId} (now ${r.candles}) → near tx`, r.nearTx);
+  const again = await refused(call("/api/candle", { graveId, mourner, signature: sign(u.secretKey) }));
+  log("second candle from the same wallet →", again);
+  if (forged.startsWith("ACCEPTED") || again.startsWith("ACCEPTED")) throw new Error("candle check failed");
+}
+
 (async () => {
   const u = user();
+  if (stage === "candle") {
+    for (const g of (flag("grave") ?? "0").split(",")) await candle(u, Number(g));
+    return;
+  }
   if (stage === "claim") {
     await claim(u, Number(flag("grave")), Number(flag("event")));
     return;

@@ -126,6 +126,29 @@ impl Contract {
         self.ossuaries.get(&chain).cloned()
     }
 
+    /// Candle counts for the given graves, in order.
+    pub fn get_candles(&self, grave_ids: Vec<u64>) -> Vec<U64> {
+        grave_ids.into_iter().take(200).map(|id| U64(self.candles(id))).collect()
+    }
+
+    pub fn has_lit_candle(&self, grave_id: u64, mourner: AccountId) -> bool {
+        self.has_lit(grave_id, &mourner)
+    }
+
+    /// The most-mourned graves, most candles first. Scans every grave, which
+    /// is fine at testnet scale; past a few thousand graves this wants an
+    /// incrementally maintained leaderboard.
+    pub fn get_most_mourned(&self, limit: Option<u32>) -> Vec<(u64, U64)> {
+        let mut all: Vec<(u64, u64)> =
+            (0..self.graves.len() as u64).map(|id| (id, self.candles(id))).filter(|(_, n)| *n > 0).collect();
+        all.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        all.into_iter().take(limit.unwrap_or(10).min(50) as usize).map(|(id, n)| (id, U64(n))).collect()
+    }
+
+    pub fn get_candle_total(&self) -> U64 {
+        U64(self.candle_total())
+    }
+
     /// AMM programs and stablecoins accepted for MPC-read markets.
     pub fn get_market_config(&self) -> MarketConfig {
         self.market_config()

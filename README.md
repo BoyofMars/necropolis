@@ -149,6 +149,7 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 - **Expired Solana payouts** can be re-signed. A second execution fails because the grave account is empty. EVM payouts use fixed nonces, so re-broadcasting is safe.
 - **A Solana ossuary claim that is lost after landing** needs a coroner attestation before it can be re-signed. The contract can't tell an expired transaction from one that already landed, so it never re-signs on its own: that could pay a share twice from other graves' money. This is a documented limitation.
 - **Pumping a pool for one reading** doesn't work. Liquidity is real stablecoin in the vault, and the rite needs readings across the whole window (14 days on mainnet), so an attacker would have to keep real money in the pool the entire time.
+- **Candles are sybil-able by design.** It's one per wallet per grave, but wallets are free, so a candle count is a social signal. It never touches money or weight.
 - **Busy pools.** The coroner's copy and the MPC network's read must match byte for byte, so a pool that trades in between fails that reading and the coroner retries. That's fine for dead and quiet pools, but noisy for busy ones.
 
 ## What is real and what is simulated (testnet)
@@ -162,8 +163,8 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 
 ## Demo path (do X, see Y)
 
-1. **Contract tests:** `cd contract && cargo test --lib` → 44 tests pass. Three of them reproduce live MPC attestations byte for byte: `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector` and `matches_live_mpc_four_account_market_vector` (a Raydium pool, its vaults and mint read in one request). `mpc_read_market_replaces_reported_numbers_and_binds_the_pool` runs the live pool accounts through the contract's market path.
-2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 29 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation, owner messages that match the contract byte for byte, and the same four-account MPC vector.
+1. **Contract tests:** `cd contract && cargo test --lib` → 48 tests pass. Three of them reproduce live MPC attestations byte for byte: `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector` and `matches_live_mpc_four_account_market_vector` (a Raydium pool, its vaults and mint read in one request). `mpc_read_market_replaces_reported_numbers_and_binds_the_pool` runs the live pool accounts through the contract's market path.
+2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 33 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation, owner messages that match the contract byte for byte, the same four-account MPC vector, and obituary wording.
 3. **Read the registry:** `near contract call-function as-read-only necropolis.testnet get_ossuary json-args '{"chain":"sol-devnet"}' network-config testnet now` → `3dowrH8pUtmCzKR8DwsK9rHq2gBGqiV8FTzK2tZA45Mx`.
 4. **Use the live app** at https://necropolis-wine.vercel.app (or run it: `cd web && cp .env.example .env.local && npm run dev`), then open:
    - `/scan`: paste any Solana or Base mainnet wallet and see its tokens triaged Dead / Critical / Fading / Alive, each with its reasons.
@@ -277,8 +278,10 @@ See it on the grave page: `/grave/3` shows the bound pool, the MPC payload hash 
 - ✅ Ossuary shares proven live: a dead grave was paid from another coin's rising, signed by the ossuary's MPC key (above).
 - ✅ Wallet-signed owner actions (epitaph, payout address, transfer) from the grave page's **Keeper's ledger**, with forgery and replay refused.
 - ✅ **NEAR MPC as the coroner:** a plot rose on liquidity and market cap the contract computed from Solana accounts the MPC network read: a real Raydium devnet pool, revived with real trades (above).
+- ✅ **Wallet obituaries:** after a scan, `/obituary/<chain>/<address>` turns the result into a share card, with one headstone per dead coin and a glowing one for each coin whose plot rose.
+- ✅ **Candles and boards:** any Solana or EVM wallet can light one candle per grave by signing a message (no fee, relayed). The contract verifies the signature and keeps the count. The cemetery shows **Most mourned** and **Biggest graves** boards. A forged candle and a second candle from the same wallet are both refused ([first candle](https://testnet.nearblocks.io/txns/GPDLUnHwyizLC1SLzBa32XR33WBqmxWxTrUkovq1FDir)).
 - ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof, share cards, PWA (manifest, icons, offline shell).
-- ✅ Tests: 44 contract (incl. three live MPC vectors), 29 unit, 7 Playwright smoke (desktop + mobile); `npm run lint` clean.
+- ✅ Tests: 48 contract (incl. three live MPC vectors), 33 unit, 9 Playwright smoke (desktop + mobile); `npm run lint` clean.
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
 - ✅ Hosted at https://necropolis-wine.vercel.app (Vercel). A second real burial ran against production: Grave Nº 000001 ($COPIUM) minted 20.7 s after signing ([NEAR tx](https://testnet.nearblocks.io/txns/8XY71n79EGuB3XkkdsNK19ijaE7X1DFc6aw4jCoPUv3s)). Grave NFTs resolve their live art via `base_uri` → `/api/grave/<id>/image.svg`.
 - Mainnet is intentionally closed until the contract is audited.

@@ -247,6 +247,7 @@ body::before {
 .candle-flame {
   animation: flicker 2.6s var(--ease-in-out) infinite;
   transform-origin: 50% 100%;
+  transform-box: fill-box;
 }
 
 @keyframes heartbeat-glow {

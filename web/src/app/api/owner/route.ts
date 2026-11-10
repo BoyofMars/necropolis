@@ -7,14 +7,12 @@
  * The same checks run here first, so forged or replayed requests are turned
  * away before they cost the Sexton gas.
  */
-import { ed25519 } from "@noble/curves/ed25519.js";
-import bs58 from "bs58";
-import { verifyMessage, type Hex } from "viem";
 import { actionMessage, registry } from "@/core/near";
 import { signerKind } from "@/lib/ownerAction";
 import { BurialError } from "@/server/burial";
 import { body, fail, ok } from "@/server/respond";
 import { callContractRaw, parseEvents } from "@/server/sexton";
+import { walletSignatureValid } from "@/server/walletsig";
 
 export const maxDuration = 30;
 
@@ -34,33 +32,6 @@ const FIELD: Record<Action, [arg: string, msg: string]> = {
   set_payout_address: ["address", "address"],
 };
 
-function decodeSolanaSig(s: string): Uint8Array | null {
-  try {
-    const b = /^(0x)?[0-9a-fA-F]{128}$/.test(s) ? Buffer.from(s.replace(/^0x/, ""), "hex") : bs58.decode(s);
-    return b.length === 64 ? new Uint8Array(b) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function signatureValid(ownerId: string, message: string, signature: string): Promise<boolean> {
-  const kind = signerKind(ownerId);
-  if (kind === "solana") {
-    const sig = decodeSolanaSig(signature);
-    if (!sig) return false;
-    try {
-      return ed25519.verify(sig, new TextEncoder().encode(message), Buffer.from(ownerId, "hex"));
-    } catch {
-      return false;
-    }
-  }
-  if (kind === "evm") {
-    if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) return false;
-    return verifyMessage({ address: ownerId as Hex, message, signature: signature as Hex }).catch(() => false);
-  }
-  return false;
-}
-
 export async function POST(req: Request) {
   try {
     const i = await body<Input>(req);
@@ -79,7 +50,7 @@ export async function POST(req: Request) {
     const current = Number(await registry.nonce(g.owner_id));
     if (i.nonce !== current) throw new BurialError("That signature was already used. Sign again.", "STALE_NONCE");
     const message = actionMessage(i.action, i.graveId, [[msgField, i.value]], i.nonce);
-    if (!(await signatureValid(g.owner_id, message, i.signature))) {
+    if (!(await walletSignatureValid(g.owner_id, message, i.signature))) {
       throw new BurialError("The signature doesn't match this grave's owner.", "BAD_SIGNATURE");
     }
 
