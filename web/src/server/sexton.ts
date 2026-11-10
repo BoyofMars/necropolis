@@ -1,5 +1,5 @@
 /**
- * The Sexton: Bagyard's relayer + coroner keys. Server-only.
+ * The Sexton: Necropolis's relayer + coroner keys. Server-only.
  *
  * Trust model (see README → Security):
  *  - It pays NEAR gas and Solana fees so users never need NEAR or SOL.
@@ -52,7 +52,7 @@ export function sextonConfigured(): { near: boolean; solana: boolean; evm: boole
 
 const TGAS = 1_000_000_000_000n;
 
-/** Call the Bagyard contract as the Sexton and return the final value of the receipt chain. */
+/** Call the Necropolis contract as the Sexton and return the final value of the receipt chain. */
 export async function callContract<T>(method: string, args: Record<string, unknown>, tgas = 300, deposit = 0n): Promise<T> {
   return sextonNear().callFunction<T & object>({
     contractId: CONTRACT_ID,

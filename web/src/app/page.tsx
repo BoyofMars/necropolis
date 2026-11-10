@@ -138,7 +138,7 @@ export default function Landing() {
               {
                 n: "01",
                 t: "A grave of your own",
-                d: "Every burial gets a fresh address on Solana or Base, derived from the Bagyard contract through NEAR Chain Signatures. No one holds its private key, not even us.",
+                d: "Every burial gets a fresh address on Solana or Base, derived from the Necropolis contract through NEAR Chain Signatures. No one holds its private key, not even us.",
               },
               {
                 n: "02",
@@ -266,7 +266,7 @@ export default function Landing() {
           </Reveal>
           <div className="mt-12 grid gap-px overflow-hidden rounded-[18px] border border-line bg-line md:grid-cols-2">
             {[
-              ["Chain Signatures", "Every grave and the ossuary are addresses the Bagyard contract controls through NEAR's MPC network: EdDSA for Solana, ECDSA for Base. Payouts are transactions the contract builds itself and asks the MPC to sign."],
+              ["Chain Signatures", "Every grave and the ossuary are addresses the Necropolis contract controls through NEAR's MPC network: EdDSA for Solana, ECDSA for Base. Payouts are transactions the contract builds itself and asks the MPC to sign."],
               ["Foreign-chain verification", "verify_foreign_transaction lets the contract ask the MPC network whether a Solana account or a Base Transfer log really exists. Burials are minted only when that attestation matches byte for byte."],
               ["Wallet-native ownership", "Graves are owned by your Solana or EVM key, expressed as a NEAR implicit account. You authorise actions by signing a message in Phantom or MetaMask; the contract checks it with ed25519_verify and ecrecover."],
               ["Functional NFTs", "Each grave is a NEP-171 token that controls a native-chain address and a claim on future payouts. Transfer the NFT and the claim goes with it. Its artwork changes as the plot stirs and rises."],

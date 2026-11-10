@@ -50,7 +50,7 @@ type Phase =
   | { k: "done"; prep: Prepared; tx: string; graveId: number; nearTx?: string }
   | { k: "error"; message: string; prep?: Prepared; tx?: string };
 
-const PENDING_KEY = "bagyard:pending-burial";
+const PENDING_KEY = "necropolis:pending-burial";
 const TERMS = NETWORK === "mainnet" ? MAINNET_TERMS : TESTNET_TERMS;
 
 export function BurialFlow() {
@@ -234,7 +234,7 @@ export function BurialFlow() {
               <p className="mt-2 text-bone-2">
                 Approve the {CHAINS[phase.prep.chain].name} transaction: a transfer of {compact(Number(phase.prep.amount) / 10 ** phase.prep.decimals)} tokens to{" "}
                 <Mono>{shortAddress(phase.prep.graveAddress, 6, 6)}</Mono>.
-                {phase.prep.solanaTx && " Network fees are paid by Bagyard."}
+                {phase.prep.solanaTx && " Network fees are paid by Necropolis."}
               </p>
               <Pulse beats={syntheticBeats("dead", 30)} className="mt-6 h-16 w-full" scan />
             </Panel>
@@ -438,7 +438,7 @@ function ReviewStep({ prep, epitaph, setEpitaph, onBack, onSign }: { prep: Prepa
           ["You receive", "A grave (NEP-171 NFT on NEAR) owned by this same wallet key. Transferable."],
           ["It rises if", `the token sustains a real recovery for ${describeWindow(TERMS)} (liquidity, volume, traders, market cap, no wash trading).`],
           ["When it rises", "80% of your tokens come back to you. 20% is shared by every other resting grave."],
-          ["Fees", prep.solanaTx ? "None. Bagyard pays the Solana network fee and the grave account rent." : "Base network gas, paid from your wallet."],
+          ["Fees", prep.solanaTx ? "None. Necropolis pays the Solana network fee and the grave account rent." : "Base network gas, paid from your wallet."],
         ].map(([k, v]) => (
           <div key={k as string} className="grid gap-1 px-6 py-4 sm:grid-cols-[160px_1fr]">
             <dt className="text-sm text-bone-3">{k}</dt>

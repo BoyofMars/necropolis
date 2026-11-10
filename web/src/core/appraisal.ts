@@ -37,7 +37,7 @@ export function eligibility(d: Diagnosis, dossier: TokenDossier, plotState?: "RE
       code: "ALIVE",
       reason:
         d.condition === "ALIVE"
-          ? "This token is alive. Bagyard only accepts the dead."
+          ? "This token is alive. Necropolis only accepts the dead."
           : "This token still has a pulse. Come back when it flatlines.",
     };
   }

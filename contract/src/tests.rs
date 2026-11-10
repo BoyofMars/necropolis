@@ -13,7 +13,7 @@ fn acc(s: &str) -> AccountId {
 
 fn ctx(predecessor: &str, ts_secs: u64) {
     let mut b = VMContextBuilder::new();
-    b.current_account_id(acc("bagyard.testnet"))
+    b.current_account_id(acc("necropolis.testnet"))
         .predecessor_account_id(acc(predecessor))
         .block_timestamp(ts_secs * 1_000_000_000)
         .attached_deposit(NearToken::from_yoctonear(0));
@@ -27,7 +27,7 @@ fn contract() -> Contract {
         acc("v1.signer-prod.testnet"),
         Network::Testnet,
         vec![acc("coroner.testnet")],
-        Some("https://bagyard.example/api/grave".into()),
+        Some("https://necropolis.example/api/grave".into()),
     )
 }
 
@@ -95,7 +95,7 @@ fn alive(t: u64) -> Observation {
 #[test]
 fn burial_records_tithe_weight_and_ownership() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     let id = c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000_000, 50_000_000, true));
     assert_eq!(id, 0);
     let g = c.get_grave(0).unwrap();
@@ -114,7 +114,7 @@ fn burial_records_tithe_weight_and_ownership() {
 #[test]
 fn weight_is_clamped_to_plot_cap() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     let mut first = pending(MINT_DEAD, SOL_OWNER_A, 1, 10, 900_000_000, true);
     first.args.appraisal.plot.as_mut().unwrap().weight_cap_usd_e6 = U64(1_000_000_000);
     c.inter(first);
@@ -127,7 +127,7 @@ fn weight_is_clamped_to_plot_cap() {
 #[test]
 fn low_death_score_earns_no_weight() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     let mut p = pending(MINT_DEAD, SOL_OWNER_A, 1, 10, 5_000_000, true);
     p.args.appraisal.death_score = 40;
     c.inter(p);
@@ -137,7 +137,7 @@ fn low_death_score_earns_no_weight() {
 #[test]
 fn rising_creates_event_and_shares_go_to_other_plots() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     // Plot X (will rise): two graves
     c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000_000, 10_000_000, true));
     c.inter(pending(MINT_DEAD, SOL_OWNER_B, 2, 3_000_000, 30_000_000, false));
@@ -178,7 +178,7 @@ fn rising_creates_event_and_shares_go_to_other_plots() {
 #[test]
 fn graves_buried_after_a_rising_do_not_share_in_it() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 10, true));
     c.inter(pending(MINT_OTHER, SOL_OWNER_A, 2, 1_000, 10, true));
     let pid = plot_id(Chain::SolDevnet, MINT_DEAD);
@@ -186,7 +186,7 @@ fn graves_buried_after_a_rising_do_not_share_in_it() {
         ctx("coroner.testnet", t);
         c.observe(pid.clone(), alive(t));
     }
-    ctx("bagyard.testnet", 20_000);
+    ctx("necropolis.testnet", 20_000);
     c.inter(pending(MINT_OTHER, SOL_OWNER_B, 3, 1_000, 10, false));
     let late = c.get_share(2, 0).unwrap();
     assert!(!late.eligible);
@@ -196,14 +196,14 @@ fn graves_buried_after_a_rising_do_not_share_in_it() {
 #[test]
 fn late_burial_into_a_risen_plot_is_kept_but_unweighted() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 10, true));
     let pid = plot_id(Chain::SolDevnet, MINT_DEAD);
     for t in [10_000u64, 10_150, 10_300, 10_400] {
         ctx("coroner.testnet", t);
         c.observe(pid.clone(), alive(t));
     }
-    ctx("bagyard.testnet", 11_000);
+    ctx("necropolis.testnet", 11_000);
     let id = c.inter(pending(MINT_DEAD, SOL_OWNER_B, 2, 1_000, 10, false));
     assert_eq!(c.get_grave(id).unwrap().weight_usd_e6.0, 0);
 }
@@ -212,7 +212,7 @@ fn late_burial_into_a_risen_plot_is_kept_but_unweighted() {
 #[should_panic(expected = "only a coroner can do this")]
 fn only_coroners_observe() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 10, true));
     ctx("random.testnet", 3_000);
     c.observe(plot_id(Chain::SolDevnet, MINT_DEAD), alive(3_000));
@@ -231,7 +231,7 @@ fn mainnet_chains_rejected_on_testnet() {
 #[test]
 fn duplicate_grave_paths_are_rejected() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     let p = pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 10, true);
     c.inter(p.clone());
     ctx("coroner.testnet", 2_100);
@@ -261,7 +261,7 @@ fn bury_records_pending_and_blocks_reuse_of_deposit() {
 #[test]
 fn raise_requires_risen_plot_and_ossuary() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 10, true));
     let fee = || SolanaFee { fee_payer: SOL_OWNER_B.into(), blockhash: SOL_OWNER_A.into() };
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -288,7 +288,7 @@ fn raise_requires_risen_plot_and_ossuary() {
 #[test]
 fn owner_actions_need_a_signature_from_implicit_owners() {
     let mut c = contract();
-    ctx("bagyard.testnet", 2_000);
+    ctx("necropolis.testnet", 2_000);
     c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 10, true));
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         c.set_epitaph(0, "hello".into(), None);

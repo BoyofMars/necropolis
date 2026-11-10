@@ -26,9 +26,9 @@ const evmKey = generatePrivateKey();
 const evm = privateKeyToAccount(evmKey);
 
 const env = [
-  "# Bagyard server secrets — DO NOT COMMIT",
+  "# Necropolis server secrets — DO NOT COMMIT",
   "NEXT_PUBLIC_NETWORK=testnet",
-  "NEXT_PUBLIC_CONTRACT_ID=bagyard.testnet",
+  "NEXT_PUBLIC_CONTRACT_ID=necropolis.testnet",
   "NEXT_PUBLIC_MPC_SIGNER=v1.signer-prod.testnet",
   "NEAR_RPC_URL=https://test.rpc.fastnear.com",
   `SEXTON_NEAR_ACCOUNT=${nearAccount}`,

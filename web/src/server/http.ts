@@ -16,8 +16,8 @@ export class ProviderError extends Error {
 }
 
 type Entry = { value: unknown; expires: number };
-const g = globalThis as unknown as { __bagyardCache?: Map<string, Entry>; __bagyardBuckets?: Map<string, Bucket> };
-const cache: Map<string, Entry> = (g.__bagyardCache ??= new Map());
+const g = globalThis as unknown as { __necropolisCache?: Map<string, Entry>; __necropolisBuckets?: Map<string, Bucket> };
+const cache: Map<string, Entry> = (g.__necropolisCache ??= new Map());
 
 export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
@@ -37,7 +37,7 @@ interface Bucket {
   refillPerMs: number;
   last: number;
 }
-const buckets: Map<string, Bucket> = (g.__bagyardBuckets ??= new Map());
+const buckets: Map<string, Bucket> = (g.__necropolisBuckets ??= new Map());
 
 /** Wait for a token from the provider's bucket (or give up after maxWaitMs). */
 export async function throttle(provider: string, perMinute: number, maxWaitMs = 8_000): Promise<void> {
@@ -72,7 +72,7 @@ export async function getJson<T>(
     const res = await fetch(url, {
       ...rest,
       signal: ctrl.signal,
-      headers: { accept: "application/json", "user-agent": "bagyard/0.1", ...(rest.headers ?? {}) },
+      headers: { accept: "application/json", "user-agent": "necropolis/0.1", ...(rest.headers ?? {}) },
       ...(revalidate !== undefined ? { next: { revalidate } } : { cache: "no-store" }),
     });
     if (!res.ok) throw new ProviderError(provider, `HTTP ${res.status}`, res.status);
