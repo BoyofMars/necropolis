@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Pulse } from "@/components/Pulse";
-import { Button, ButtonLink, ConditionTag, Mono, Notice, Panel, cx } from "@/components/ui";
+import { Button, ButtonLink, ConditionTag, Notice, Panel, cx } from "@/components/ui";
 import { CHAINS, shortAddress, type ChainId } from "@/core/chains";
 import { graveStage } from "@/core/graveArt";
 import { CONTRACT_ID, MPC_SIGNER, NETWORK, nearAccountUrl, registry, type EventJson, type GraveJson, type PlotJson } from "@/core/near";
@@ -13,7 +13,8 @@ import { post } from "@/lib/api";
 import { syntheticBeats } from "@/lib/beats";
 import { ago, compact, date, graveNo, tokenAmount, usd } from "@/lib/format";
 import { baseOf, obsOf, stateOf, termsOf } from "@/lib/rite";
-import { useWallets } from "@/lib/wallets";
+import { ownerIds, useWallets } from "@/lib/wallets";
+import { Keeper } from "./Keeper";
 
 interface Bundle {
   grave: GraveJson;
@@ -68,7 +69,8 @@ export function GraveView({ id }: { id: number }) {
   const { grave: g, plot, events } = q.data;
   const ch = CHAINS[g.chain as ChainId];
   const stage = graveStage(g, plot);
-  const mine = w.sol === g.origin_owner || w.evm === g.origin_owner;
+  // Ownership follows the NEAR owner id (which changes on transfer), not the burier.
+  const mine = ownerIds(w).includes(g.owner_id);
   const terms = plot ? termsOf(plot) : null;
   const latest = plot?.last_observation ? obsOf(plot.last_observation) : undefined;
   const checks = plot && latest && terms ? checkObservation(terms, baseOf(plot), latest) : [];
@@ -177,6 +179,9 @@ export function GraveView({ id }: { id: number }) {
           {/* raising */}
           {plot?.state.kind === "RISEN" && <Raise g={g} onDone={refresh} />}
 
+          {/* owner actions, wallet-signed */}
+          {mine && <Keeper g={g} onDone={refresh} />}
+
           {/* ossuary */}
           <Panel className="p-6">
             <h2 className="font-display text-2xl text-bone">Ossuary shares</h2>
@@ -261,10 +266,11 @@ function Seance({ plotId, onChange, state }: { plotId: string; onChange: () => v
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running]);
 
-  const [, force] = useState(0);
+  // A ticking clock in state keeps render pure (no Date.now() while rendering).
+  const [now, setNow] = useState(0);
   useEffect(() => {
     if (!next) return;
-    const i = setInterval(() => force((x) => x + 1), 1000);
+    const i = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(i);
   }, [next]);
 
@@ -288,7 +294,7 @@ function Seance({ plotId, onChange, state }: { plotId: string; onChange: () => v
       </div>
       {(msg || next) && (
         <p className="mt-3 text-xs text-bone-2" aria-live="polite">
-          {msg} {running && next && next > Date.now() ? `Next reading in ${Math.ceil((next - Date.now()) / 1000)}s.` : ""}
+          {msg} {running && next && now && next > now ? `Next reading in ${Math.ceil((next - now) / 1000)}s.` : ""}
         </p>
       )}
     </div>

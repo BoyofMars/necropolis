@@ -37,15 +37,14 @@ function TokenChip({ chip, faded, returning, compact }: { chip: Chip; faded?: bo
 
 export function HeroMechanic() {
   const reduced = useReducedMotion();
-  const [stage, setStage] = useState(0);
+  const [step, setStep] = useState(0);
   useEffect(() => {
-    if (reduced) {
-      setStage(5);
-      return;
-    }
-    const t = setTimeout(() => setStage((s) => (s + 1) % STAGES.length), STAGES[stage]);
+    if (reduced) return;
+    const t = setTimeout(() => setStep((s) => (s + 1) % STAGES.length), STAGES[step]);
     return () => clearTimeout(t);
-  }, [stage, reduced]);
+  }, [step, reduced]);
+  // Reduced motion shows the finished story (risen) without animating there.
+  const stage = reduced ? 5 : step;
 
   const aBuried = stage >= 1;
   const bBuried = stage >= 2;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export type ThemeChoice = "system" | "light" | "dark";
 export const THEME_KEY = "necropolis:theme";
@@ -12,6 +12,17 @@ export const THEME_KEY = "necropolis:theme";
  */
 export const THEME_BOOT_SCRIPT = `try{var t=localStorage.getItem("${THEME_KEY}");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;
 
+// The <html data-theme> attribute (set by the boot script) is the store.
+const listeners = new Set<() => void>();
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+};
+const current = (): ThemeChoice => {
+  const t = document.documentElement.getAttribute("data-theme");
+  return t === "light" || t === "dark" ? t : "system";
+};
+
 function apply(choice: ThemeChoice) {
   const el = document.documentElement;
   if (choice === "system") el.removeAttribute("data-theme");
@@ -22,25 +33,18 @@ function apply(choice: ThemeChoice) {
   } catch {
     /* storage blocked: the choice lasts for this page view */
   }
+  listeners.forEach((l) => l());
 }
 
 const NEXT: Record<ThemeChoice, ThemeChoice> = { system: "light", light: "dark", dark: "system" };
 const LABEL: Record<ThemeChoice, string> = { system: "System theme", light: "Light theme", dark: "Dark theme" };
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const [choice, setChoice] = useState<ThemeChoice>("system");
-  useEffect(() => {
-    const t = document.documentElement.getAttribute("data-theme");
-    setChoice(t === "light" || t === "dark" ? t : "system");
-  }, []);
+  const choice = useSyncExternalStore<ThemeChoice>(subscribe, current, () => "system");
   return (
     <button
       type="button"
-      onClick={() => {
-        const next = NEXT[choice];
-        apply(next);
-        setChoice(next);
-      }}
+      onClick={() => apply(NEXT[choice])}
       className={
         "inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-line-strong text-bone-2 transition hover:border-bone-4 hover:text-bone " +
         (className ?? "")
