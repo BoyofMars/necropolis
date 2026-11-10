@@ -5,7 +5,7 @@
  * preferred chain). localStorage only — never the source of truth for graves,
  * which always come from the NEAR contract.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import type { ChainId } from "@/core/chains";
 
 export interface RecentToken {
@@ -36,26 +36,47 @@ interface Ctx {
 
 const PrefsCtx = createContext<Ctx | null>(null);
 
+// localStorage is the store. The snapshot is cached so React sees a stable
+// object, and a `storage` event from another tab invalidates it (tabs stay in sync).
+let cache: Prefs | null = null;
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((l) => l());
+
+function read(): Prefs {
+  if (cache) return cache;
+  try {
+    const raw = localStorage.getItem(KEY);
+    cache = raw ? { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Prefs>) } : DEFAULTS;
+  } catch {
+    cache = DEFAULTS; // private mode or blocked storage: run with defaults
+  }
+  return cache;
+}
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== KEY) return;
+    cache = null;
+    notify();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
 export function PrefsProvider({ children }: { children: ReactNode }) {
-  const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) setPrefs({ ...DEFAULTS, ...(JSON.parse(raw) as Partial<Prefs>) });
-    } catch {
-      /* private mode or blocked storage: run with defaults */
-    }
-  }, []);
+  const prefs = useSyncExternalStore(subscribe, read, () => DEFAULTS);
   const update = useCallback((fn: (p: Prefs) => Prefs) => {
-    setPrefs((p) => {
-      const next = fn(p);
-      try {
-        localStorage.setItem(KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    cache = fn(read());
+    try {
+      localStorage.setItem(KEY, JSON.stringify(cache));
+    } catch {
+      /* storage blocked: the change lasts for this page view */
+    }
+    notify();
   }, []);
   const value = useMemo<Ctx>(
     () => ({
