@@ -6,7 +6,11 @@
  *
  *   npx tsx scripts/record-demo.ts [https://necropolis-wine.vercel.app]
  *   → demo/necropolis-demo.webm
+ *
+ * With FFMPEG=<path to ffmpeg> it also writes demo/necropolis-demo.mp4 for X:
+ * H.264 + AAC, 30 fps, fast start, with the warm-up before scene 1 cut off.
  */
+import { spawnSync } from "node:child_process";
 import { mkdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Page } from "@playwright/test";
@@ -91,9 +95,12 @@ async function glide(page: Page, to: string | number, ms = 1600) {
   });
   await ctx.addInitScript(CAPTION_SCRIPT);
   const page = await ctx.newPage();
+  const recordingStarted = Date.now();
   await page.goto(`${BASE}/offline`, { waitUntil: "domcontentloaded" }); // same origin, so sessionStorage works from scene 1
 
   await scene(page, 1, "/", "A graveyard for dead memecoins.", "Bury the bag on its own chain. A NEAR contract holds the vault, with no bridge. If the coin ever comes back, you get it back.", "Bury the bag.");
+  await page.waitForLoadState("load").catch(() => {});
+  const introSkip = (Date.now() - recordingStarted) / 1000; // the warm-up page, cut from the MP4
   await sleep(3500);
   await glide(page, 620, 2200);
   await sleep(2500);
@@ -143,8 +150,25 @@ async function glide(page: Page, to: string | number, ms = 1600) {
   await ctx.close();
   await browser.close();
   const path = await video!.path();
-  renameSync(path, join(OUT, "necropolis-demo.webm"));
-  console.log(`\nwrote ${join(OUT, "necropolis-demo.webm")}`);
+  const webm = join(OUT, "necropolis-demo.webm");
+  renameSync(path, webm);
+  console.log(`\nwrote ${webm}`);
+
+  if (process.env.FFMPEG) {
+    const mp4 = join(OUT, "necropolis-demo.mp4");
+    const r = spawnSync(
+      process.env.FFMPEG,
+      [
+        ...["-hide_banner", "-loglevel", "error", "-y", "-ss", introSkip.toFixed(2), "-i", webm],
+        ...["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100", "-shortest", "-map", "0:v:0", "-map", "1:a:0"],
+        ...["-c:v", "libx264", "-preset", "slow", "-crf", "20", "-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p", "-r", "30"],
+        ...["-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", mp4],
+      ],
+      { stdio: "inherit" },
+    );
+    if (r.status !== 0) throw new Error("ffmpeg failed");
+    console.log(`wrote ${mp4} (intro trimmed ${introSkip.toFixed(1)}s)`);
+  }
 })().catch((e) => {
   console.error("RECORDING FAILED:", e.message);
   process.exit(1);

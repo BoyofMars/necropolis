@@ -1,6 +1,6 @@
 # Launch thread for X
 
-Ready to paste, one post per block. Every post fits in 280 characters (X counts each link as 23). Attach the demo video (`web/demo/necropolis-demo.webm`, converted to MP4) to post 1, and an obituary card (`/api/og/obituary/<chain>/<wallet>`) to post 5.
+Ready to paste, one post per block. Every post fits in 280 characters (X counts each link as 23). Attach the demo video (`web/demo/necropolis-demo.mp4`, from `FFMPEG=<path> npx tsx scripts/record-demo.ts`) to post 1, and an obituary card (`/api/og/obituary/<chain>/<wallet>`) to post 5.
 
 ---
 
