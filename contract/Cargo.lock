@@ -63,16 +63,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bagyard"
-version = "0.1.0"
-dependencies = [
- "bs58 0.5.1",
- "curve25519-dalek",
- "hex",
- "near-sdk",
-]
-
-[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1532,6 +1522,16 @@ dependencies = [
  "thiserror",
  "tracing",
  "zeropool-bn",
+]
+
+[[package]]
+name = "necropolis"
+version = "0.1.0"
+dependencies = [
+ "bs58 0.5.1",
+ "curve25519-dalek",
+ "hex",
+ "near-sdk",
 ]
 
 [[package]]

@@ -97,7 +97,7 @@ impl Contract {
     pub fn nft_metadata(&self) -> NftContractMetadata {
         NftContractMetadata {
             spec: "nft-1.0.0".into(),
-            name: "Bagyard Graves".into(),
+            name: "Necropolis Graves".into(),
             symbol: "GRAVE".into(),
             icon: Some(ICON.into()),
             base_uri: self.config.nft_base_uri.clone(),

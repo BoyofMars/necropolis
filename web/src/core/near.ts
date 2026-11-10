@@ -3,7 +3,7 @@
  * the grave registry is public state anyone can read and verify.
  */
 export const NETWORK = (process.env.NEXT_PUBLIC_NETWORK ?? "testnet") as "testnet" | "mainnet";
-export const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID ?? "bagyard.testnet";
+export const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID ?? "necropolis.testnet";
 export const MPC_SIGNER = process.env.NEXT_PUBLIC_MPC_SIGNER ?? (NETWORK === "mainnet" ? "v1.signer" : "v1.signer-prod.testnet");
 export const NEAR_RPC =
   process.env.NEXT_PUBLIC_NEAR_RPC_URL ?? (NETWORK === "mainnet" ? "https://free.rpc.fastnear.com" : "https://test.rpc.fastnear.com");
@@ -36,7 +36,7 @@ export async function nearView<T>(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: "bagyard",
+      id: "necropolis",
       method: "query",
       params: {
         request_type: "call_function",
@@ -220,7 +220,7 @@ export function plotId(chain: ContractChain, token: string): string {
 
 /** Same format as the contract's `auth::action_message`. */
 export function actionMessage(action: string, graveId: number, fields: [string, string][], nonce: number): string {
-  let m = `Bagyard v1\ncontract: ${CONTRACT_ID}\naction: ${action}\ngrave: ${graveId}\n`;
+  let m = `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: ${action}\ngrave: ${graveId}\n`;
   for (const [k, v] of fields) m += `${k}: ${v}\n`;
   return m + `nonce: ${nonce}`;
 }

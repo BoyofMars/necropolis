@@ -45,7 +45,7 @@ pub fn implicit_owner(origin: &str, solana: bool) -> Result<AccountId, &'static 
 
 /// Canonical message an owner signs. The web app builds the exact same string.
 pub fn action_message(contract: &str, action: &str, grave_id: u64, fields: &[(&str, String)], nonce: u64) -> String {
-    let mut m = format!("Bagyard v1\ncontract: {}\naction: {}\ngrave: {}\n", contract, action, grave_id);
+    let mut m = format!("Necropolis v1\ncontract: {}\naction: {}\ngrave: {}\n", contract, action, grave_id);
     for (k, v) in fields {
         m.push_str(k);
         m.push_str(": ");
@@ -118,8 +118,8 @@ mod tests {
 
     #[test]
     fn message_is_stable() {
-        let m = action_message("bagyard.testnet", "set_epitaph", 7, &[("epitaph", "gm".into())], 3);
-        assert_eq!(m, "Bagyard v1\ncontract: bagyard.testnet\naction: set_epitaph\ngrave: 7\nepitaph: gm\nnonce: 3");
+        let m = action_message("necropolis.testnet", "set_epitaph", 7, &[("epitaph", "gm".into())], 3);
+        assert_eq!(m, "Necropolis v1\ncontract: necropolis.testnet\naction: set_epitaph\ngrave: 7\nepitaph: gm\nnonce: 3");
     }
 
     #[test]

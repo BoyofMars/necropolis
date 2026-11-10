@@ -24,7 +24,7 @@ export interface Prefs {
 }
 
 const DEFAULTS: Prefs = { watchlist: [], recent: [], wallets: [], preferredChain: "sol-devnet", seenIntro: false };
-const KEY = "bagyard:prefs:v1";
+const KEY = "necropolis:prefs:v1";
 
 interface Ctx {
   prefs: Prefs;

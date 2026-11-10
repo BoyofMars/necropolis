@@ -1,12 +1,12 @@
 [package]
-name = "bagyard"
-description = "Bagyard: a cross-chain graveyard for dead memecoins. Burial registry, resurrection rite and chain-signature vaults on NEAR."
+name = "necropolis"
+description = "Necropolis: a cross-chain graveyard for dead memecoins. Burial registry, resurrection rite and chain-signature vaults on NEAR."
 version = "0.1.0"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
 license = "MIT"
-repository = "https://github.com/BoyofMars/bagyard"
+repository = "https://github.com/BoyofMars/necropolis"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -1,4 +1,4 @@
-﻿//! # Bagyard
+﻿//! # Necropolis
 //!
 //! A cross-chain graveyard for dead memecoins.
 //!
