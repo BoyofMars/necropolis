@@ -54,7 +54,7 @@ export function Autopsy({ chain, address }: { chain: string; address: string }) 
         <h1 className="font-display text-4xl text-bone">The autopsy could not be completed.</h1>
         <p className="mt-3 text-bone-2">{(q.error as Error)?.message ?? "Unknown error."}</p>
         <div className="mt-6 flex gap-3">
-          <button onClick={() => q.refetch()} className="h-11 rounded-[10px] bg-ember px-5 text-sm font-semibold text-[#1a1206]">
+          <button onClick={() => q.refetch()} className="h-11 rounded-[10px] bg-ember px-5 text-sm font-semibold text-on-ember">
             Try again
           </button>
           <ButtonLink href="/discover" variant="ghost">
@@ -78,13 +78,14 @@ export function Autopsy({ chain, address }: { chain: string; address: string }) 
   const createdSecs = p.createdAt ? Math.floor(p.createdAt / 1000) : dossier.history[0]?.t;
 
   const buryHere = ch.network === NETWORK;
+  const dying = cond === "DEAD" || cond === "CRITICAL";
   const timeline = [
     createdSecs && { t: createdSecs, label: "Born", detail: `First market opened${p.primaryPool?.dex && p.primaryPool.dex !== "simulated" ? ` on ${p.primaryPool.dex}` : ""}.` },
     d.historyTruncated && dossier.history[0] && { t: dossier.history[0].t, label: "Records begin", detail: `Our price history starts here (${dossier.history.length} days).` },
     d.athAt && !d.deadBeforeRecords && { t: d.athAt, label: d.historyTruncated ? "Highest in our records" : "Peak", detail: `${d.historyTruncated ? "Highest" : "All-time high"} close of ${price(d.athPriceUsd)}.` },
     d.cause.code === "SUDDEN_COLLAPSE" && { t: undefined, label: "Collapse", detail: d.cause.detail },
-    d.timeOfDeath && { t: d.timeOfDeath, label: "Time of death", detail: `Daily volume fell below 1% of its peak and never recovered.` },
-    d.deadBeforeRecords && { t: undefined, label: "Time of death", detail: "Before our records begin: it was already flatlining on day one of our history." },
+    dying && d.timeOfDeath && { t: d.timeOfDeath, label: "Time of death", detail: `Daily volume fell below 1% of its peak and never recovered.` },
+    dying && d.deadBeforeRecords && { t: undefined, label: "Time of death", detail: "Before our records begin: it was already flatlining on day one of our history." },
     d.lastSignOfLife && { t: d.lastSignOfLife.t, label: "Last sign of life", detail: `${usd(d.lastSignOfLife.volumeUsd)} traded that day.` },
     plot && { t: Number(plot.opened_at), label: "First burial", detail: `${plot.grave_count} grave${plot.grave_count === 1 ? "" : "s"} in this plot so far.` },
   ].filter(Boolean) as { t?: number; label: string; detail: string }[];
@@ -189,7 +190,7 @@ export function Autopsy({ chain, address }: { chain: string; address: string }) 
           <h2 className="font-display text-2xl text-bone">Life, in one line</h2>
           <span className="text-xs text-bone-4">{dossier.historySource ? `source: ${dossier.historySource}` : ""}</span>
         </div>
-        <LifeChart history={dossier.history} athAt={d.deadBeforeRecords ? undefined : d.athAt} timeOfDeath={d.timeOfDeath} athLabel={d.historyTruncated ? "high" : "ATH"} />
+        <LifeChart history={dossier.history} athAt={d.deadBeforeRecords ? undefined : d.athAt} timeOfDeath={dying ? d.timeOfDeath : undefined} athLabel={d.historyTruncated ? "high" : "ATH"} />
       </Panel>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
