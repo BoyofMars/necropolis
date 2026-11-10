@@ -306,3 +306,108 @@ fn derived_key_parsing() {
     assert_eq!(sol, "6vSEtQxrQj6txUMh33WC4ERyCWmNMRTdufDWAaDY3Un2");
     assert!(address_from_derived_key(Chain::BaseSepolia, "ed25519:abc").is_err());
 }
+
+// ------------------------------------------------------------ MPC-read markets
+
+const NGMI: &str = "bA2zfsHzXQU2QXNg38oBXcybBqHJBmR9KB9FXVoRJVy";
+const NGMI_POOL: &str = "9qdP4ijxxWV36CEwzSEP11T7kop2hvYaRQsTezo9PPZn";
+const TUSDC: &str = "3gkxUqqFfRtaB1U6Zo5gorDz8Nji9LwpM8GSKvdeErnC";
+const DEVNET_CPMM: &str = "DRaycpLY18LhpbydsBWbVJtxpNv9oXPgjRSfpF2bWpYb";
+
+fn market_plot() -> (Contract, String) {
+    let mut c = contract();
+    ctx("necropolis.testnet", 2_000);
+    c.inter(pending(NGMI, SOL_OWNER_A, 1, 1_000_000, 50_000_000, true));
+    ctx("owner.testnet", 2_010);
+    c.set_market_config(MarketConfig {
+        amm_programs: vec![DEVNET_CPMM.into()],
+        stable_mints: vec![StableMint { mint: TUSDC.into(), decimals: 6 }],
+    });
+    (c, plot_id(Chain::SolDevnet, NGMI))
+}
+
+/// The live NGMI pool accounts, as the coroner would submit them.
+fn live_accounts() -> (String, Vec<AccountSnapshot>) {
+    let m = market::tests::live_market();
+    let accounts = m
+        .accounts
+        .iter()
+        .map(|a| AccountSnapshot { owner: solana::to_b58(&a.owner), data: near_sdk::json_types::Base64VecU8(a.data.clone()) })
+        .collect();
+    (bs58::encode(m.anchor).into_string(), accounts)
+}
+
+fn bind(c: &mut Contract, pid: &str) {
+    ctx("coroner.testnet", 2_020);
+    let (anchor, accounts) = live_accounts();
+    let (_, o, binding, reading) = c.prepare_market(pid, alive(2_020), NGMI_POOL.into(), anchor, accounts);
+    ctx("necropolis.testnet", 2_030);
+    let ok = Ok(json!({ "payload_hash": reading.proof_hash }));
+    c.on_market_verified(pid.to_string(), o, binding, reading, ok).unwrap();
+}
+
+#[test]
+fn mpc_read_market_replaces_reported_numbers_and_binds_the_pool() {
+    let (mut c, pid) = market_plot();
+    ctx("coroner.testnet", 2_020);
+    let (anchor, accounts) = live_accounts();
+    // The coroner claims a thriving market (alive(): $120k liquidity, $2M mcap). The pool says otherwise.
+    let (args, o, binding, reading) = c.prepare_market(&pid, alive(2_020), NGMI_POOL.into(), anchor, accounts);
+    // Same request the MPC network answered live on 2026-11-10.
+    assert_eq!(reading.proof_hash, "92235a8baa0949c0cc475add6560370f59b2dcc672ddf74505386416023f68cd");
+    assert!(args.contains(&reading.proof_hash));
+    assert_eq!(o.liquidity_usd.0, 600);
+    assert_eq!(o.market_cap_usd.0, 349);
+    assert_eq!(o.volume_24h_usd.0, 400_000, "volume still comes from the coroner");
+    assert_eq!(binding.quote_mint, TUSDC);
+    assert_eq!(binding.program, DEVNET_CPMM);
+
+    ctx("necropolis.testnet", 2_030);
+    // A different answer, or no answer, from the MPC network changes nothing.
+    let wrong = Ok(json!({ "payload_hash": "00".repeat(32) }));
+    assert!(c.on_market_verified(pid.clone(), o.clone(), binding.clone(), reading.clone(), wrong).is_none());
+    assert!(c.on_market_verified(pid.clone(), o.clone(), binding.clone(), reading.clone(), Err(PromiseError::Failed)).is_none());
+    assert!(c.get_pool_binding(pid.clone()).is_none());
+    assert_eq!(c.get_plot(pid.clone()).unwrap().observations, 0);
+
+    // The matching answer binds the pool, stores the reading and runs the rite on verified numbers.
+    let ok = Ok(json!({ "payload_hash": reading.proof_hash }));
+    let state = c.on_market_verified(pid.clone(), o, binding, reading, ok).unwrap();
+    assert!(matches!(state, PlotState::Resting { .. }), "$600 of liquidity cannot stir a plot");
+    assert_eq!(c.get_pool_binding(pid.clone()).unwrap().pool, NGMI_POOL);
+    let r = c.get_market_reading(pid.clone()).unwrap();
+    assert_eq!((r.liquidity_usd.0, r.market_cap_usd.0), (600, 349));
+    assert_eq!(c.get_plot(pid).unwrap().observations, 1);
+    assert!(get_logs().iter().any(|l| l.contains("pool_bound")));
+}
+
+#[test]
+#[should_panic(expected = "use observe_market")]
+fn bound_plots_refuse_reported_markets() {
+    let (mut c, pid) = market_plot();
+    bind(&mut c, &pid);
+    ctx("coroner.testnet", 2_100);
+    c.observe(pid, alive(2_100));
+}
+
+#[test]
+#[should_panic(expected = "bound to a different pool")]
+fn bound_plots_refuse_other_pools() {
+    let (mut c, pid) = market_plot();
+    bind(&mut c, &pid);
+    ctx("coroner.testnet", 2_100);
+    let (anchor, accounts) = live_accounts();
+    c.prepare_market(&pid, alive(2_100), SOL_OWNER_B.into(), anchor, accounts);
+}
+
+#[test]
+#[should_panic(expected = "not an allowlisted stablecoin")]
+fn markets_need_an_allowlisted_stablecoin() {
+    let mut c = contract();
+    ctx("necropolis.testnet", 2_000);
+    c.inter(pending(NGMI, SOL_OWNER_A, 1, 1_000_000, 50_000_000, true));
+    // testnet default config has no stablecoin
+    ctx("coroner.testnet", 2_020);
+    let (anchor, accounts) = live_accounts();
+    c.prepare_market(&plot_id(Chain::SolDevnet, NGMI), alive(2_020), NGMI_POOL.into(), anchor, accounts);
+}
