@@ -216,6 +216,7 @@ web/        Next.js 16 app
 ## Disclosure
 
 - Built during the hackathon window (November 2026). The `pre-hackathon` tag marks the empty scaffold (`create-next-app` output); everything after it is new.
+- **Other submission:** the author also entered **[Sudo by Contract](https://github.com/BoyofMars/sudo-by-contract)**, an independent project: short-lived, policy-bound SSH access for AI agents, with NEAR's MPC network as an SSH certificate authority that has no private key. The two projects share no code.
 - **AI-generated code:** this project was built with Claude Code (Anthropic) acting as the engineer under the owner's direction. Research, architecture, contract, app and docs were produced in that session.
 - **Libraries:** near-sdk-rs, curve25519-dalek, bs58, hex; Next.js, React, Tailwind, motion, @solana/web3.js, @solana/spl-token, wallet-adapter, wagmi/viem, @noble/curves/hashes, near-api-js, TanStack Query, zod, vitest.
 - **Data providers:** DexScreener, GeckoTerminal, Jupiter, Blockscout, RugCheck, honeypot.is (public endpoints).
