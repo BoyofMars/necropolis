@@ -110,12 +110,22 @@ async function seance(graveId: number) {
   const g = await registry.grave(graveId);
   const plotId = g?.plot_id;
   if (!plotId) throw new Error(`grave ${graveId} not found on NEAR`);
-  for (let i = 0; i < 12; i++) {
-    const r = await call<{ state?: { kind: string }; skipped?: string; waitSeconds?: number; transition?: string; risen?: boolean; nearTx?: string }>("/api/seance", {
-      plotId,
-      mode: "revive",
-    });
+  for (let i = 0; i < 14; i++) {
+    const r = await call<{
+      state?: { kind: string };
+      skipped?: string;
+      waitSeconds?: number;
+      transition?: string;
+      risen?: boolean;
+      nearTx?: string;
+      bound?: boolean;
+      revived?: string[];
+      market?: { liquidity_usd: string; market_cap_usd: string; proof_hash: string } | null;
+    }>("/api/seance", { plotId, mode: "revive" });
     log("séance:", r.skipped ?? r.transition, r.state?.kind, r.nearTx ?? "");
+    if (r.bound) log("  pool bound to the plot by its first MPC-verified reading");
+    if (r.market) log(`  MPC-verified: liquidity $${r.market.liquidity_usd}, market cap $${r.market.market_cap_usd}, proof ${r.market.proof_hash.slice(0, 16)}…`);
+    if (r.revived) log("  revival trades on Raydium devnet:", r.revived.join(", "));
     if (r.risen || r.state?.kind === "RISEN") return;
     await sleep(((r.waitSeconds ?? 0) + 62) * 1000);
   }

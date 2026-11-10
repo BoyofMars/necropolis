@@ -73,7 +73,11 @@ pub struct SvmAccount {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ForeignRequest {
     BaseLog { tx_hash: [u8; 32], log_index: u64, finality: EvmFinality },
-    SolanaAccount { tx_signature: [u8; 64], account: [u8; 32], finality: SvmFinality },
+    /// One `AccountState` extractor per account. The MPC nodes check that the
+    /// anchor transaction exists and succeeded, then read each account's
+    /// *current* state (`getAccountInfo` at `finality`, never older than the
+    /// anchor's slot). It is a live read, not a historical snapshot.
+    SolanaAccounts { tx_signature: [u8; 64], accounts: Vec<[u8; 32]>, finality: SvmFinality },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,13 +118,15 @@ fn encode_request(w: &mut W, req: &ForeignRequest) {
             w.u64(*log_index);
             w.u8(*finality as u8);
         }
-        ForeignRequest::SolanaAccount { tx_signature, account, finality } => {
+        ForeignRequest::SolanaAccounts { tx_signature, accounts, finality } => {
             w.u8(RPC_SOLANA);
             w.raw(tx_signature);
             w.u8(*finality as u8);
-            w.u32(1);
-            w.u8(2); // SvmExtractor::AccountState (explicit discriminant 2)
-            w.raw(account);
+            w.u32(accounts.len() as u32);
+            for account in accounts {
+                w.u8(2); // SvmExtractor::AccountState (explicit discriminant 2)
+                w.raw(account);
+            }
         }
     }
 }
@@ -152,18 +158,20 @@ fn encode_value(w: &mut W, v: &ExtractedValue) {
     }
 }
 
-/// borsh(ForeignTxSignPayload::V1 { request, values: vec![value] })
-pub fn payload_bytes(req: &ForeignRequest, value: &ExtractedValue) -> Vec<u8> {
+/// borsh(ForeignTxSignPayload::V1 { request, values }), one value per extractor in order.
+pub fn payload_bytes(req: &ForeignRequest, values: &[ExtractedValue]) -> Vec<u8> {
     let mut w = W::default();
     w.u8(0); // ForeignTxSignPayload::V1
     encode_request(&mut w, req);
-    w.u32(1);
-    encode_value(&mut w, value);
+    w.u32(values.len() as u32);
+    for v in values {
+        encode_value(&mut w, v);
+    }
     w.0
 }
 
-pub fn expected_payload_hash(req: &ForeignRequest, value: &ExtractedValue) -> [u8; 32] {
-    env::sha256_array(payload_bytes(req, value))
+pub fn expected_payload_hash(req: &ForeignRequest, values: &[ExtractedValue]) -> [u8; 32] {
+    env::sha256_array(payload_bytes(req, values))
 }
 
 /// JSON args for `verify_foreign_transaction`.
@@ -175,11 +183,15 @@ pub fn verify_args_json(req: &ForeignRequest, expected: &[u8; 32], domain_id: u6
             log_index,
             finality.as_str()
         ),
-        ForeignRequest::SolanaAccount { tx_signature, account, finality } => format!(
-            r#"{{"Solana":{{"tx_id":"{}","finality":"{}","extractors":[{{"AccountState":{{"pubkey":"{}"}}}}]}}}}"#,
+        ForeignRequest::SolanaAccounts { tx_signature, accounts, finality } => format!(
+            r#"{{"Solana":{{"tx_id":"{}","finality":"{}","extractors":[{}]}}}}"#,
             hex::encode(tx_signature),
             finality.as_str(),
-            hex::encode(account)
+            accounts
+                .iter()
+                .map(|a| format!(r#"{{"AccountState":{{"pubkey":"{}"}}}}"#, hex::encode(a)))
+                .collect::<Vec<_>>()
+                .join(",")
         ),
     };
     format!(
@@ -281,7 +293,7 @@ mod tests {
             data: "0x01".into(),
             topics: vec![[0x22; 32]],
         };
-        let b = payload_bytes(&req, &ExtractedValue::EvmLog(log));
+        let b = payload_bytes(&req, &[ExtractedValue::EvmLog(log)]);
         // V1, Base, tx_id, 1 extractor, Log discriminant, log index, finality
         assert_eq!(b[0], 0);
         assert_eq!(b[1], RPC_BASE);
@@ -326,7 +338,7 @@ mod tests {
                 h32("000000000000000000000000acbbcbcd97019a20596c405dc6d98188a05e285a"),
             ],
         };
-        let got = hex::encode(expected_payload_hash(&req, &ExtractedValue::EvmLog(log)));
+        let got = hex::encode(expected_payload_hash(&req, &[ExtractedValue::EvmLog(log)]));
         assert_eq!(got, "51451c9a60023254548c1b846d2de8ab2d5e94f1baeef3e2067daeba93aaa674");
     }
 
@@ -340,9 +352,9 @@ mod tests {
         .unwrap()
         .try_into()
         .unwrap();
-        let req = ForeignRequest::SolanaAccount {
+        let req = ForeignRequest::SolanaAccounts {
             tx_signature: sig,
-            account: h32("6b103246aa2cb4b103610daa32c5a412293138ff1dbdaa24fab883019215f038"),
+            accounts: vec![h32("6b103246aa2cb4b103610daa32c5a412293138ff1dbdaa24fab883019215f038")],
             finality: SvmFinality::Finalized,
         };
         let data = hex::decode("3b442cb3912157f13a933d0134282d032b5ffecd01a2dbf1b7790608df002ea774fe37289d66909485447d1e6f78e62aa70ecb1178ee09afdefe4c245fbe7f3cc80e060000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
@@ -353,8 +365,28 @@ mod tests {
             owner: h32("06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9"),
             data,
         });
-        let got = hex::encode(expected_payload_hash(&req, &value));
+        let got = hex::encode(expected_payload_hash(&req, &[value]));
         assert_eq!(got, "0d3484bdcad08ba9ba19f1a6450f7261f1b1e4cac584ca8cc9bdaa7006518c82");
+    }
+
+    /// Live vector: `v1.signer-prod.testnet` read four accounts in one request
+    /// (the $NGMI/tUSDC Raydium CPMM pool state, both vaults and the NGMI mint;
+    /// anchor = the pool-creation tx) on 2026-11-10 and signed this payload hash
+    /// (NEAR tx 6KQogkUWrkhDJcFwaF6HEGReQodbVkeE3HjmvY298YzB).
+    #[test]
+    fn matches_live_mpc_four_account_market_vector() {
+        let v = crate::market::tests::live_market();
+        let values: Vec<ExtractedValue> =
+            v.accounts.iter().map(|a| ExtractedValue::SvmAccount(SvmAccount { owner: a.owner, data: a.data.clone() })).collect();
+        let req = ForeignRequest::SolanaAccounts {
+            tx_signature: v.anchor,
+            accounts: v.accounts.iter().map(|a| a.key).collect(),
+            finality: SvmFinality::Finalized,
+        };
+        let got = hex::encode(expected_payload_hash(&req, &values));
+        assert_eq!(got, "92235a8baa0949c0cc475add6560370f59b2dcc672ddf74505386416023f68cd");
+        let args = verify_args_json(&req, &[0u8; 32], 3);
+        assert_eq!(args.matches("AccountState").count(), 4);
     }
 
     #[test]

@@ -7,26 +7,46 @@ import { Pulse } from "@/components/Pulse";
 import { Button, ButtonLink, ConditionTag, Notice, Panel, cx } from "@/components/ui";
 import { CHAINS, shortAddress, type ChainId } from "@/core/chains";
 import { graveStage } from "@/core/graveArt";
-import { CONTRACT_ID, MPC_SIGNER, NETWORK, nearAccountUrl, registry, type EventJson, type GraveJson, type PlotJson } from "@/core/near";
+import {
+  CONTRACT_ID,
+  MPC_SIGNER,
+  NETWORK,
+  nearAccountUrl,
+  registry,
+  type EventJson,
+  type GraveJson,
+  type MarketReadingJson,
+  type PlotJson,
+  type PoolBindingJson,
+} from "@/core/near";
 import { checkObservation, describeWindow, riteProgress } from "@/core/resurrection";
 import { post } from "@/lib/api";
 import { syntheticBeats } from "@/lib/beats";
 import { ago, compact, date, graveNo, tokenAmount, usd } from "@/lib/format";
 import { baseOf, obsOf, stateOf, termsOf } from "@/lib/rite";
 import { ownerIds, useWallets } from "@/lib/wallets";
+import { testPool } from "@/core/testnet";
 import { Keeper } from "./Keeper";
+import { MarketProof, MPC_READ_CHECKS } from "./MarketProof";
 
 interface Bundle {
   grave: GraveJson;
   plot: PlotJson | null;
   events: EventJson[];
+  binding: PoolBindingJson | null;
+  reading: MarketReadingJson | null;
 }
 
 async function load(id: number): Promise<Bundle | null> {
   const grave = await registry.grave(id);
   if (!grave) return null;
-  const [plot, events] = await Promise.all([registry.plot(grave.plot_id), registry.events()]);
-  return { grave, plot, events };
+  const [plot, events, binding, reading] = await Promise.all([
+    registry.plot(grave.plot_id),
+    registry.events(),
+    registry.poolBinding(grave.plot_id).catch(() => null),
+    registry.marketReading(grave.plot_id).catch(() => null),
+  ]);
+  return { grave, plot, events, binding, reading };
 }
 
 export function GraveView({ id }: { id: number }) {
@@ -66,7 +86,7 @@ export function GraveView({ id }: { id: number }) {
     );
   }
 
-  const { grave: g, plot, events } = q.data;
+  const { grave: g, plot, events, binding, reading } = q.data;
   const ch = CHAINS[g.chain as ChainId];
   const stage = graveStage(g, plot);
   // Ownership follows the NEAR owner id (which changes on transfer), not the burier.
@@ -160,9 +180,16 @@ export function GraveView({ id }: { id: number }) {
               {checks.length > 0 ? (
                 <ul className="mt-5 grid gap-2 sm:grid-cols-2">
                   {checks.map((c) => (
-                    <li key={c.key} className="flex items-center justify-between rounded-[10px] border border-line bg-loam-2 px-3 py-2 text-sm">
-                      <span className="text-bone-3">{c.label}</span>
-                      <span className={cx("tabular", c.pass ? "text-alive" : "text-bone-2")}>
+                    <li key={c.key} className="flex items-center justify-between gap-3 rounded-[10px] border border-line bg-loam-2 px-3 py-2 text-sm">
+                      <span className="flex min-w-0 items-center gap-1.5 text-bone-3">
+                        {c.label}
+                        {binding && MPC_READ_CHECKS.has(c.key) && (
+                          <span title="Read from the pool by NEAR MPC, not reported" className="rounded-full border border-alive/40 px-1.5 text-[9px] font-bold uppercase tracking-wider text-alive">
+                            MPC
+                          </span>
+                        )}
+                      </span>
+                      <span className={cx("shrink-0 whitespace-nowrap tabular", c.pass ? "text-alive" : "text-bone-2")}>
                         {c.measured} <span className="text-bone-4">/ {c.required}</span>
                       </span>
                     </li>
@@ -171,8 +198,15 @@ export function GraveView({ id }: { id: number }) {
               ) : (
                 <p className="mt-4 text-sm text-bone-3">No vital signs reported since burial. The plot rests.</p>
               )}
-              {latest && <p className="mt-3 text-xs text-bone-4">Last observation {ago(latest.t)} · reported by a coroner, judged by the contract.</p>}
-              {NETWORK === "testnet" && plot.state.kind !== "RISEN" && <Seance plotId={plot.id} onChange={refresh} state={plot.state.kind} />}
+              {latest && (
+                <p className="mt-3 text-xs text-bone-4">
+                  Last observation {ago(latest.t)} · {binding ? "market read by NEAR MPC, activity reported by a coroner" : "reported by a coroner"}, judged by the contract.
+                </p>
+              )}
+              {binding && <MarketProof chain={g.chain as ChainId} binding={binding} reading={reading} />}
+              {NETWORK === "testnet" && plot.state.kind !== "RISEN" && (
+                <Seance plotId={plot.id} onChange={refresh} state={plot.state.kind} realPool={!!binding || !!testPool(plot.chain, plot.symbol)} />
+              )}
             </Panel>
           )}
 
@@ -224,7 +258,7 @@ export function GraveView({ id }: { id: number }) {
   );
 }
 
-function Seance({ plotId, onChange, state }: { plotId: string; onChange: () => void; state: string }) {
+function Seance({ plotId, onChange, state, realPool }: { plotId: string; onChange: () => void; state: string; realPool: boolean }) {
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [next, setNext] = useState<number | null>(null);
@@ -232,10 +266,24 @@ function Seance({ plotId, onChange, state }: { plotId: string; onChange: () => v
 
   const tick = async (mode: "revive" | "false-dawn") => {
     try {
-      const r = await post<{ state?: { kind: string }; skipped?: string; waitSeconds?: number; transition?: string; risen?: boolean }>("/api/seance", { plotId, mode });
+      const r = await post<{
+        state?: { kind: string };
+        skipped?: string;
+        waitSeconds?: number;
+        transition?: string;
+        risen?: boolean;
+        bound?: boolean;
+        revived?: string[];
+        market?: { liquidity_usd: string } | null;
+      }>("/api/seance", { plotId, mode });
       onChange();
+      const said = String(r.transition ?? "").replace(/([A-Z])/g, " $1").trim().toLowerCase();
       if (r.skipped) setMsg(`Coroner will report again ${r.skipped.replace("next observation in ", "in ")}.`);
-      else setMsg(r.risen ? "The plot has risen." : `Coroner reported: ${String(r.transition ?? "").replace(/([A-Z])/g, " $1").trim().toLowerCase()}.`);
+      else if (r.risen) setMsg("The plot has risen.");
+      else if (r.revived) setMsg(`Real buys and returning liquidity landed on Raydium devnet (${r.revived.length} transactions). NEAR MPC reads the pool next.`);
+      else if (r.bound) setMsg("NEAR MPC read the pool and the contract bound it to this plot. Still dead, for now.");
+      else if (r.market) setMsg(`NEAR MPC read $${Number(r.market.liquidity_usd).toLocaleString()} of liquidity; the contract judged: ${said}.`);
+      else setMsg(`Coroner reported: ${said}.`);
       return r;
     } catch (e) {
       setMsg((e as Error).message);
@@ -280,7 +328,17 @@ function Seance({ plotId, onChange, state }: { plotId: string; onChange: () => v
         <div>
           <div className="text-sm font-semibold text-fading">Séance · testnet only</div>
           <p className="mt-1 max-w-md text-xs text-bone-3">
-            Feeds <em>simulated</em> recovery vitals to the coroner so you can watch the contract run the rite on compressed timers. The contract still checks every rule.
+            {realPool ? (
+              <>
+                Revives this token&rsquo;s <em>real</em> Raydium devnet pool with buys and returning liquidity. NEAR MPC reads the pool; only volume
+                and trader counts are simulated. Compressed timers, every rule checked by the contract.
+              </>
+            ) : (
+              <>
+                Feeds <em>simulated</em> recovery vitals to the coroner so you can watch the contract run the rite on compressed timers. The contract
+                still checks every rule.
+              </>
+            )}
           </p>
         </div>
         <div className="flex gap-2">

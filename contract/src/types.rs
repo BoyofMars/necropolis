@@ -315,3 +315,60 @@ pub struct OwnerAuth {
     /// Solana: base58 or hex 64-byte ed25519 signature. EVM: 0x hex 65-byte signature.
     pub signature: String,
 }
+
+// ------------------------------------------------------------ MPC-read markets
+
+/// A coroner's copy of one Solana account, for the MPC network to confirm.
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct AccountSnapshot {
+    /// owning program, base58
+    pub owner: String,
+    pub data: near_sdk::json_types::Base64VecU8,
+}
+
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StableMint {
+    pub mint: String,
+    pub decimals: u8,
+}
+
+/// What the contract accepts as a market: AMM programs whose pool layout it
+/// parses, and stablecoins it prices at $1.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MarketConfig {
+    pub amm_programs: Vec<String>,
+    pub stable_mints: Vec<StableMint>,
+}
+
+/// A plot's market, fixed by the first MPC-verified reading. From then on the
+/// plot only accepts readings of this pool.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PoolBinding {
+    pub pool: String,
+    pub program: String,
+    pub token_vault: String,
+    pub quote_vault: String,
+    pub quote_mint: String,
+    pub bound_at: U64,
+}
+
+/// The latest market reading the MPC network confirmed for a plot.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MarketReading {
+    pub liquidity_usd: U64,
+    pub price_usd_e18: U128,
+    pub market_cap_usd: U64,
+    pub token_reserve: U64,
+    pub quote_reserve: U64,
+    pub supply: U64,
+    /// Solana tx the request was anchored to (base58)
+    pub anchor_tx: String,
+    /// sha256 of the MPC-signed foreign-tx payload
+    pub proof_hash: String,
+    pub at: U64,
+}

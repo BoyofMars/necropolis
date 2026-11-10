@@ -187,6 +187,29 @@ export interface ShareJson {
   claimed: boolean;
 }
 
+/** A plot's market, fixed by its first MPC-verified reading. */
+export interface PoolBindingJson {
+  pool: string;
+  program: string;
+  token_vault: string;
+  quote_vault: string;
+  quote_mint: string;
+  bound_at: U64;
+}
+
+/** The latest market reading the NEAR MPC network confirmed for a plot. */
+export interface MarketReadingJson {
+  liquidity_usd: U64;
+  price_usd_e18: U128;
+  market_cap_usd: U64;
+  token_reserve: U64;
+  quote_reserve: U64;
+  supply: U64;
+  anchor_tx: string;
+  proof_hash: string;
+  at: U64;
+}
+
 export const registry = {
   stats: () => nearView<StatsJson>("get_stats"),
   plots: (from = 0, limit = 100) => nearView<PlotJson[]>("get_plots", { from_index: from, limit }),
@@ -203,6 +226,8 @@ export const registry = {
   nonce: (owner: string) => nearView<U64>("get_nonce", { owner_id: owner }),
   graveIdForPath: (path: string) => nearView<number | null>("grave_id_for_path", { path }),
   config: () => nearView<Record<string, unknown>>("get_config"),
+  poolBinding: (plotId: string) => nearView<PoolBindingJson | null>("get_pool_binding", { plot_id: plotId }),
+  marketReading: (plotId: string) => nearView<MarketReadingJson | null>("get_market_reading", { plot_id: plotId }),
 };
 
 /** Same format as the contract's `grave_path`. */

@@ -132,6 +132,11 @@ export const TEST_BAGS: TestBag[] = BAGS.map((b) => ({ ...b, address: DEPLOYED[`
 );
 export const ALL_TEST_BAG_SPECS = BAGS;
 
+/** The real devnet AMM pool a test bag trades in, if it has one (scripts/create-test-pool.ts). */
+export function testPool(chain: string, symbol: string): string | null {
+  return DEPLOYED[`${chain}:${symbol}:pool`] ?? null;
+}
+
 export function testBag(chain: ChainId, address: string): TestBag | undefined {
   const a = chain.startsWith("base") ? address.toLowerCase() : address;
   return TEST_BAGS.find((b) => b.chain === chain && (b.chain.startsWith("base") ? b.address.toLowerCase() : b.address) === a);

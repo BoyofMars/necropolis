@@ -126,6 +126,21 @@ impl Contract {
         self.ossuaries.get(&chain).cloned()
     }
 
+    /// AMM programs and stablecoins accepted for MPC-read markets.
+    pub fn get_market_config(&self) -> MarketConfig {
+        self.market_config()
+    }
+
+    /// The pool a plot's market is read from, once bound.
+    pub fn get_pool_binding(&self, plot_id: String) -> Option<PoolBinding> {
+        self.pool_binding(&plot_id)
+    }
+
+    /// The latest MPC-verified market reading for a plot.
+    pub fn get_market_reading(&self, plot_id: String) -> Option<MarketReading> {
+        self.market_reading(&plot_id)
+    }
+
     pub fn get_pending(&self, path: String) -> Option<PendingBurial> {
         self.pending.get(&path).cloned()
     }

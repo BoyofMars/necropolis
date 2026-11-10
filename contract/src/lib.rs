@@ -26,6 +26,7 @@ pub mod auth;
 pub mod events;
 pub mod evm;
 pub mod foreign;
+pub mod market;
 pub mod nft;
 pub mod rite;
 pub mod solana;
@@ -42,6 +43,23 @@ const GAS_ON_VERIFIED: Gas = Gas::from_tgas(50);
 const GAS_ON_OSSUARY: Gas = Gas::from_tgas(10);
 const GAS_SIGN: Gas = Gas::from_tgas(60);
 const GAS_ON_SIGNED: Gas = Gas::from_tgas(25);
+const GAS_ON_MARKET: Gas = Gas::from_tgas(60);
+
+// MPC-read markets live in their own storage keys (not in `Contract`), so this
+// upgrade needs no state migration.
+const MARKET_CONFIG_KEY: &[u8] = b"mkt:cfg";
+fn binding_key(plot_id: &str) -> Vec<u8> {
+    [b"mkt:bind:".as_slice(), plot_id.as_bytes()].concat()
+}
+fn reading_key(plot_id: &str) -> Vec<u8> {
+    [b"mkt:read:".as_slice(), plot_id.as_bytes()].concat()
+}
+fn raw_get<T: near_sdk::borsh::BorshDeserialize>(key: &[u8]) -> Option<T> {
+    env::storage_read(key).and_then(|b| near_sdk::borsh::from_slice(&b).ok())
+}
+fn raw_set<T: near_sdk::borsh::BorshSerialize>(key: &[u8], v: &T) {
+    env::storage_write(key, &near_sdk::borsh::to_vec(v).unwrap());
+}
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 const ZERO: NearToken = NearToken::from_yoctonear(0);
 const MAX_EPITAPH: usize = 140;
@@ -418,7 +436,98 @@ impl Contract {
     /// Report vital signs for a plot. The contract applies the rite.
     pub fn observe(&mut self, plot_id: String, observation: Observation) -> PlotState {
         self.assert_coroner();
+        require!(
+            raw_get::<PoolBinding>(&binding_key(&plot_id)).is_none(),
+            "this plot's market is read by the MPC network: use observe_market"
+        );
         self.apply_observation(plot_id, observation)
+    }
+
+    /// Report vital signs for a plot whose market the NEAR MPC network reads
+    /// from Solana. `accounts` are the coroner's copies of [pool, token vault,
+    /// quote vault, token mint]. The contract checks them, computes liquidity,
+    /// price and market cap itself, and sends their hash to the MPC network as
+    /// the expected answer. The rite runs only if the MPC network independently
+    /// read exactly that state. The coroner's own liquidity, price and market
+    /// cap are discarded; only its volume and trader counts are used.
+    pub fn observe_market(
+        &mut self,
+        plot_id: String,
+        observation: Observation,
+        pool: String,
+        anchor_tx: String,
+        accounts: Vec<AccountSnapshot>,
+    ) -> Promise {
+        self.assert_coroner();
+        let (args, o, binding, reading) = self.prepare_market(&plot_id, observation, pool, anchor_tx, accounts);
+        Promise::new(self.config.mpc_signer.clone())
+            .function_call("verify_foreign_transaction", args.into_bytes(), ONE_YOCTO, GAS_VERIFY)
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(GAS_ON_MARKET)
+                    .on_market_verified(plot_id, o, binding, reading),
+            )
+    }
+
+    #[private]
+    pub fn on_market_verified(
+        &mut self,
+        plot_id: String,
+        observation: Observation,
+        binding: PoolBinding,
+        reading: MarketReading,
+        #[callback_result] response: Result<Value, PromiseError>,
+    ) -> Option<PlotState> {
+        let ok = match &response {
+            Ok(v) => v
+                .get("payload_hash")
+                .and_then(|h| h.as_str())
+                .map(|h| h.trim_start_matches("0x").eq_ignore_ascii_case(&reading.proof_hash))
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        if !ok {
+            events::emit("market_unverified", json!({ "plot_id": plot_id, "pool": binding.pool }));
+            return None;
+        }
+        let key = binding_key(&plot_id);
+        match raw_get::<PoolBinding>(&key) {
+            None => {
+                raw_set(&key, &binding);
+                events::emit("pool_bound", json!({ "plot_id": plot_id, "pool": binding.pool, "quote_mint": binding.quote_mint }));
+            }
+            // a concurrent reading bound a different pool first
+            Some(b) if b.pool != binding.pool => return None,
+            Some(_) => {}
+        }
+        raw_set(&reading_key(&plot_id), &reading);
+        events::emit(
+            "market_verified",
+            json!({
+                "plot_id": plot_id,
+                "liquidity_usd": reading.liquidity_usd,
+                "market_cap_usd": reading.market_cap_usd,
+                "price_usd_e18": reading.price_usd_e18,
+                "proof_hash": reading.proof_hash,
+            }),
+        );
+        let risen = self.plots.get(&plot_id).map(|p| matches!(p.state, PlotState::Risen { .. })).unwrap_or(true);
+        if risen {
+            return None;
+        }
+        Some(self.apply_observation(plot_id, observation))
+    }
+
+    /// Allowlists for MPC-read markets. Owner only (frozen once the contract is locked).
+    pub fn set_market_config(&mut self, config: MarketConfig) {
+        self.assert_owner();
+        for p in &config.amm_programs {
+            solana::b58(p).unwrap_or_else(|e| fail(e));
+        }
+        for s in &config.stable_mints {
+            solana::b58(&s.mint).unwrap_or_else(|e| fail(e));
+        }
+        raw_set(MARKET_CONFIG_KEY, &config);
     }
 
     // ------------------------------------------------------------------ raise
@@ -614,6 +723,98 @@ impl Contract {
         require!(env::predecessor_account_id() == self.config.owner_id, "only the owner can do this");
     }
 
+    /// Market allowlists: owner-set, or per-network defaults (Raydium CPMM;
+    /// USDC and USDT on mainnet, no stablecoin on testnet until one is set).
+    pub(crate) fn market_config(&self) -> MarketConfig {
+        raw_get(MARKET_CONFIG_KEY).unwrap_or_else(|| match self.config.network {
+            Network::Mainnet => MarketConfig {
+                amm_programs: vec!["CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C".into()],
+                stable_mints: vec![
+                    StableMint { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".into(), decimals: 6 },
+                    StableMint { mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".into(), decimals: 6 },
+                ],
+            },
+            Network::Testnet => MarketConfig {
+                amm_programs: vec!["DRaycpLY18LhpbydsBWbVJtxpNv9oXPgjRSfpF2bWpYb".into()],
+                stable_mints: vec![],
+            },
+        })
+    }
+
+    /// Check a coroner's account copies for `observe_market` and build
+    /// everything the MPC round trip needs: the `verify_foreign_transaction`
+    /// args (with the expected hash), the observation with verified numbers,
+    /// the pool binding and the reading.
+    pub(crate) fn prepare_market(
+        &self,
+        plot_id: &str,
+        observation: Observation,
+        pool: String,
+        anchor_tx: String,
+        accounts: Vec<AccountSnapshot>,
+    ) -> (String, Observation, PoolBinding, MarketReading) {
+        let plot = self.plots.get(plot_id).cloned().unwrap_or_else(|| fail("plot not found"));
+        require!(plot.chain.is_solana(), "MPC-read markets are Solana-only");
+        require!(!matches!(plot.state, PlotState::Risen { .. }), "this plot has already risen");
+        if let Some(b) = self.pool_binding(plot_id) {
+            require!(b.pool == pool, "this plot is bound to a different pool");
+        }
+        let cfg = self.market_config();
+        let decode = |s: &str| solana::b58(s).unwrap_or_else(|e| fail(e));
+        let amm: Vec<[u8; 32]> = cfg.amm_programs.iter().map(|p| decode(p)).collect();
+        let stables: Vec<([u8; 32], u8)> = cfg.stable_mints.iter().map(|s| (decode(&s.mint), s.decimals)).collect();
+        let snaps: Vec<([u8; 32], Vec<u8>)> = accounts.iter().map(|a| (decode(&a.owner), a.data.0.clone())).collect();
+        let prepared = market::prepare(decode(&plot.token), plot.decimals, decode(&pool), &snaps, &amm, &stables)
+            .unwrap_or_else(|e| fail(e));
+        let sig = bs58::decode(&anchor_tx).into_vec().unwrap_or_else(|_| fail("invalid anchor tx"));
+        let sig: [u8; 64] = sig.try_into().unwrap_or_else(|_| fail("anchor tx signature must be 64 bytes"));
+        let req = ForeignRequest::SolanaAccounts {
+            tx_signature: sig,
+            accounts: prepared.keys.to_vec(),
+            finality: SvmFinality::Finalized,
+        };
+        let program = snaps[0].0;
+        let values: Vec<ExtractedValue> = snaps
+            .into_iter()
+            .map(|(owner, data)| ExtractedValue::SvmAccount(foreign::SvmAccount { owner, data }))
+            .collect();
+        let expected = foreign::expected_payload_hash(&req, &values);
+        let r = prepared.reading;
+        let now = U64(now_secs());
+        let binding = PoolBinding {
+            pool,
+            program: solana::to_b58(&program),
+            token_vault: solana::to_b58(&prepared.keys[1]),
+            quote_vault: solana::to_b58(&prepared.keys[2]),
+            quote_mint: solana::to_b58(&prepared.quote_mint),
+            bound_at: now,
+        };
+        let reading = MarketReading {
+            liquidity_usd: U64(r.liquidity_usd),
+            price_usd_e18: U128(r.price_usd_e18),
+            market_cap_usd: U64(r.market_cap_usd),
+            token_reserve: U64(r.token_reserve),
+            quote_reserve: U64(r.quote_reserve),
+            supply: U64(r.supply),
+            anchor_tx,
+            proof_hash: hex::encode(expected),
+            at: now,
+        };
+        let mut o = observation;
+        o.liquidity_usd = U64(r.liquidity_usd);
+        o.price_usd_e18 = U128(r.price_usd_e18);
+        o.market_cap_usd = U64(r.market_cap_usd);
+        (foreign::verify_args_json(&req, &expected, self.config.domain_foreign), o, binding, reading)
+    }
+
+    pub(crate) fn pool_binding(&self, plot_id: &str) -> Option<PoolBinding> {
+        raw_get(&binding_key(plot_id))
+    }
+
+    pub(crate) fn market_reading(&self, plot_id: &str) -> Option<MarketReading> {
+        raw_get(&reading_key(plot_id))
+    }
+
     pub(crate) fn assert_coroner(&self) {
         require!(self.coroners.contains(&env::predecessor_account_id()), "only a coroner can do this");
     }
@@ -690,7 +891,7 @@ impl Contract {
                     return Err("nothing was buried");
                 }
                 (
-                    ForeignRequest::SolanaAccount { tx_signature: sig, account, finality: SvmFinality::Finalized },
+                    ForeignRequest::SolanaAccounts { tx_signature: sig, accounts: vec![account], finality: SvmFinality::Finalized },
                     ExtractedValue::SvmAccount(foreign::SvmAccount { owner: program, data }),
                     acc.amount as u128,
                     Some(account_program.clone()),
@@ -720,7 +921,7 @@ impl Contract {
                 )
             }
         };
-        let expected = foreign::expected_payload_hash(&req, &value);
+        let expected = foreign::expected_payload_hash(&req, std::slice::from_ref(&value));
         p.grave_address = Some(grave_address);
         p.amount = Some(U128(amount));
         p.expected_hash = Some(hex::encode(expected));
