@@ -226,6 +226,10 @@ export const registry = {
   nonce: (owner: string) => nearView<U64>("get_nonce", { owner_id: owner }),
   graveIdForPath: (path: string) => nearView<number | null>("grave_id_for_path", { path }),
   config: () => nearView<Record<string, unknown>>("get_config"),
+  candles: (graveIds: number[]) => nearView<U64[]>("get_candles", { grave_ids: graveIds }),
+  hasLit: (graveId: number, mourner: string) => nearView<boolean>("has_lit_candle", { grave_id: graveId, mourner }),
+  mostMourned: (limit = 10) => nearView<[number, U64][]>("get_most_mourned", { limit }),
+  candleTotal: () => nearView<U64>("get_candle_total"),
   poolBinding: (plotId: string) => nearView<PoolBindingJson | null>("get_pool_binding", { plot_id: plotId }),
   marketReading: (plotId: string) => nearView<MarketReadingJson | null>("get_market_reading", { plot_id: plotId }),
 };
@@ -248,4 +252,9 @@ export function actionMessage(action: string, graveId: number, fields: [string, 
   let m = `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: ${action}\ngrave: ${graveId}\n`;
   for (const [k, v] of fields) m += `${k}: ${v}\n`;
   return m + `nonce: ${nonce}`;
+}
+
+/** What a mourner signs to light a candle (one per wallet per grave, so nonce 0). */
+export function candleMessage(graveId: number, mourner: string): string {
+  return actionMessage("light_candle", graveId, [["mourner", mourner]], 0);
 }
