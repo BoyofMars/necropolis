@@ -135,10 +135,15 @@ export async function dailyHistory(chain: ChainId, pool: string): Promise<Candle
       { revalidate: 21_600, timeoutMs: 12_000 },
     );
     const list = res.data?.attributes?.ohlcv_list ?? [];
-    return list
-      .map(([t, o, h, l, c, v]) => ({ t, o, h, l, c, v }))
-      .filter((d) => Number.isFinite(d.c))
-      .sort((a, b) => a.t - b.t);
+    const byDay = new Map<number, Candle>();
+    for (const [t, o, h, l, c, v] of list) {
+      if (!Number.isFinite(c)) continue;
+      const day = Math.floor(t / 86_400) * 86_400;
+      const prev = byDay.get(day);
+      // providers occasionally return the same day twice; merge volumes, keep the latest close
+      byDay.set(day, prev ? { ...prev, h: Math.max(prev.h, h), l: Math.min(prev.l, l), c, v: prev.v + v } : { t: day, o, h, l, c, v });
+    }
+    return [...byDay.values()].sort((a, b) => a.t - b.t);
   });
 }
 
