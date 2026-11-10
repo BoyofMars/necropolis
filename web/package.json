@@ -1,12 +1,14 @@
 {
-  "name": "web",
+  "name": "necropolis-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",
