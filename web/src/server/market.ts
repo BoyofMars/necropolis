@@ -10,17 +10,15 @@
  */
 import { Connection, PublicKey } from "@solana/web3.js";
 import type { ContractChain } from "@/core/near";
-import addresses from "@/core/testnet-addresses.json";
+import { testPool } from "@/core/testnet";
 import { solanaRpcUrl } from "./providers";
 import { callContractRaw, parseEvents } from "./sexton";
 
 /** Raydium CPMM PoolState offsets (see contract/src/market.rs). */
 const OFF = { vaultA: 72, vaultB: 104, mintA: 168, mintB: 200 };
 
-/** Testnet pools created by scripts/create-test-pool.ts, keyed by plot id. */
-export function knownPool(chain: ContractChain, symbol: string): string | null {
-  return (addresses as Record<string, string>)[`${chain}:${symbol}:pool`] ?? null;
-}
+/** Testnet pools created by scripts/create-test-pool.ts. */
+export const knownPool = (chain: ContractChain, symbol: string) => testPool(chain, symbol);
 
 function conn(chain: ContractChain) {
   return new Connection(solanaRpcUrl(chain as "sol" | "sol-devnet"), "finalized");
