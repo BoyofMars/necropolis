@@ -123,7 +123,7 @@ The first passing observation makes the plot **stirring**. It **rises** after 14
 | NEAR MPC network | Sign for grave/ossuary addresses when the contract asks; attest foreign transactions | Sign anything the contract didn't build (threshold MPC) |
 | Necropolis contract | Build payouts: raise (owner + ossuary only), ossuary claims (pro rata) | Send buried tokens anywhere else; mint a grave without a matching MPC attestation |
 | Coroner (Sexton) | Appraise burials (value, weight); report vital signs | Move tokens; fabricate deposits; decide resurrection (the contract does) |
-| Relayer (Sexton) | Pay fees; broadcast transactions anyone could broadcast | Redirect payouts: destination accounts are derived on-chain |
+| Relayer (Sexton) | Pay fees; broadcast transactions anyone could broadcast; relay owner-signed actions (it checks the signature first, so forgeries cost it nothing) | Redirect payouts: destination accounts are derived on-chain. Forge, alter or replay an owner action: the contract verifies the signature and nonce itself |
 | Grave owner | Transfer the grave; set epitaph or payout address via wallet signature (nonce-protected) | Withdraw before the plot rises |
 | Contract owner key | Add/remove coroners; set NFT base URI | Change a plot's frozen terms; touch buried tokens |
 
@@ -150,7 +150,7 @@ The first passing observation makes the plot **stirring**. It **rises** after 14
 ## Demo path (do X, see Y)
 
 1. **Contract tests:** `cd contract && cargo test --lib` → 34 tests pass, including `matches_live_mpc_base_sepolia_vector` and `matches_live_mpc_solana_devnet_vector`, which reproduce live MPC attestations byte for byte.
-2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 21 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation.
+2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 26 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation, and owner messages that match the contract byte for byte.
 3. **Read the registry:** `near contract call-function as-read-only necropolis.testnet get_ossuary json-args '{"chain":"sol-devnet"}' network-config testnet now` → `3dowrH8pUtmCzKR8DwsK9rHq2gBGqiV8FTzK2tZA45Mx`.
 4. **Use the live app** at https://necropolis-wine.vercel.app (or run it: `cd web && cp .env.example .env.local && npm run dev`), then open:
    - `/scan`: paste any Solana or Base mainnet wallet and see its tokens triaged Dead / Critical / Fading / Alive, each with its reasons.
@@ -218,12 +218,35 @@ web/        Next.js 16 app
 | The rite | Séance observations: began stirring → 5× still stirring → **risen** (each a NEAR transaction the contract judged) | e.g. [first observation](https://testnet.nearblocks.io/txns/EKPSytebG9xBG8B3K64gBktshMyyc6HTcFA172RnpzB4) |
 | Raise | Contract built the Solana payout; MPC signed with the grave key; user's $FUMBLE 0 → **7,280,000** (80%); ossuary received **1,820,000** (20%); grave account left at 0 so a replay fails | [NEAR tx](https://testnet.nearblocks.io/txns/8UzsFnuyqChuhMioDTVvyHGZJh6SXY4u7fZY8aYUCpnT) · [Solana tx](https://solscan.io/tx/5tHZMXMW62g9gEvup5TitCmXwLhjYuvF9WMWDsz7yc59WCoTvpaWoDxBc5w8cKhyzekTg1wnnvxjZibrFfE6oqPt?cluster=devnet) |
 
+### The ossuary pays a grave that stayed dead
+
+Two wallets, two coins. Grave Nº 000001 ($COPIUM) belongs to wallet A and never rises. Wallet B buries $HOPIUM, and that plot rises. Wallet A's dead grave is paid from B's rising. Run with `e2e-solana.ts bury|seance|raise --user mourner --symbol HOPIUM`, then `claim --grave 1 --event 1`.
+
+| Step | What happened | On-chain |
+|---|---|---|
+| Bury (wallet B) | 2,400,000 $HOPIUM → Grave Nº 000002, ossuary weight $45.25 | [NEAR tx](https://testnet.nearblocks.io/txns/386pevPuk56pA3VKbLeWhR2XYF4kX7u3ksyAomTAdm8j) |
+| The rite | Six observations, then **risen**. The contract snapshots resting weight in every other plot: only grave 000001 qualifies | [rising](https://testnet.nearblocks.io/txns/HvhfPLmEdSjgyKi7E6Bx6hACSc2bNhwEmBZYfdvb8ise) |
+| Raise | Wallet B gets **1,920,000** back (80%); the ossuary receives the **480,000** tithe | [NEAR tx](https://testnet.nearblocks.io/txns/14Eeb5SVRbGcwAbXQwpQs5yoD6N59N9GGotYeS2nbUun) · [Solana tx](https://solscan.io/tx/4VSD4GCgY8jnUzgZUjM36V2y4PrxHXoD7kqy8ebjFuXfTtFngHMieVM9xubPT2VFac9rbAcsjxjNFomJFayKVznS?cluster=devnet) |
+| Claim (wallet A) | `get_share(1, 1)` = 432,000 (the tithe less 10% upkeep, all of it, since grave 000001 was the only resting weight). The MPC network signs from the **ossuary** key; wallet A's $HOPIUM goes up by exactly **+432,000** | [NEAR tx](https://testnet.nearblocks.io/txns/DrHvW2XjgKhnJiL8SZqfGdkmo15qWyxNBPk9ZpacSvay) · [Solana tx](https://solscan.io/tx/8PAbKfxrF1tEjCydWBfMB6Rz5tDnqyz4mX69K78P1twiasEb5AwaYajXbU1jnaZ94jnE9hWy4yje8yWY9h9V5cg?cluster=devnet) |
+
+### Owner actions are signed by the wallet, not the relayer
+
+`e2e-solana.ts owner --grave 1` sets Grave Nº 000001's epitaph with an ed25519 signature from wallet A over the canonical message (`Necropolis v1 / contract / action / grave / epitaph / nonce`), relayed by the Sexton:
+
+| Attempt | Result |
+|---|---|
+| Same request signed by a random key | Refused: the signature doesn't match the owner (checked by the relay, and again by the contract) |
+| Signed by wallet A | Epitaph set on NEAR, nonce 1 → 2 ([NEAR tx](https://testnet.nearblocks.io/txns/Ft4CU5FyBHPW6LBNugkTU2UYD9Zz3LXJj6WuPHrQjgow)) |
+| The same signature replayed | Refused: nonce already used |
+
 ## Status
 
 - ✅ Contract deployed to NEAR testnet; MPC derivation and verification proven against live attestations.
 - ✅ Full burial → rite → MPC-signed payout completed on Solana devnet (above).
+- ✅ Ossuary shares proven live: a dead grave was paid from another coin's rising, signed by the ossuary's MPC key (above).
+- ✅ Wallet-signed owner actions (epitaph, payout address, transfer) from the grave page's **Keeper's ledger**, with forgery and replay refused.
 - ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof, share cards, PWA (manifest, icons, offline shell).
-- ✅ Tests: 34 contract (incl. live MPC vectors), 21 unit, 7 Playwright smoke (desktop + mobile).
+- ✅ Tests: 34 contract (incl. live MPC vectors), 26 unit, 7 Playwright smoke (desktop + mobile); `npm run lint` clean.
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
 - ✅ Hosted at https://necropolis-wine.vercel.app (Vercel). A second real burial ran against production: Grave Nº 000001 ($COPIUM) minted 20.7 s after signing ([NEAR tx](https://testnet.nearblocks.io/txns/8XY71n79EGuB3XkkdsNK19ijaE7X1DFc6aw4jCoPUv3s)). Grave NFTs resolve their live art via `base_uri` → `/api/grave/<id>/image.svg`.
 - Mainnet is intentionally closed until the contract is audited.
