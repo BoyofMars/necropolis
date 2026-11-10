@@ -223,7 +223,7 @@ function StirringPlot({ p }: { p: PlotJson }) {
         <div className="h-full bg-ember" style={{ width: `${Math.max(3, prog.overall * 100)}%` }} />
       </div>
       <div className="mt-2 flex justify-between text-xs text-bone-3">
-        <span>{p.grave_count} graves waiting</span>
+        <span>{p.grave_count} grave{p.grave_count === 1 ? "" : "s"} waiting</span>
         <span>{latest ? `last pulse ${ago(latest.t)}` : ""}</span>
       </div>
     </Link>

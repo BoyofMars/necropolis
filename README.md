@@ -206,11 +206,25 @@ web/        Next.js 16 app
 - **Libraries:** near-sdk-rs, curve25519-dalek, bs58, hex; Next.js, React, Tailwind, motion, @solana/web3.js, @solana/spl-token, wallet-adapter, wagmi/viem, @noble/curves/hashes, near-api-js, TanStack Query, zod, vitest.
 - **Data providers:** DexScreener, GeckoTerminal, Jupiter, Blockscout, RugCheck, honeypot.is (public endpoints).
 
+## Proof it works: a real end-to-end run (Solana devnet + NEAR testnet)
+
+`npx tsx --env-file=.env.local scripts/e2e-solana.ts` drives the running app as a user with a fresh devnet wallet:
+
+| Step | What happened | On-chain |
+|---|---|---|
+| Faucet | 4 test bags minted to the user; the scanner pronounced all dead ($FUMBLE 100/100) | |
+| Bury | User signed one gasless transfer of 9,100,000 $FUMBLE to grave address `C5tgLY2z…veMxz` | [Solana tx](https://solscan.io/tx/3awgFH6ZkydbReg1vRceNyjD8LemK2EV8FwRVFsRkFgozAPi8HfNZe2SGZ3zyucok18WGT31pFdP76T7KejtJvUR?cluster=devnet) |
+| Verify + mint | NEAR's MPC network read the grave's token account; payload hash `f6b623c0…` matched; Grave Nº 000000 minted to the user's key **19.5 s after signing** | [NEAR tx](https://testnet.nearblocks.io/txns/HyPRxRUGbvTZ4H4GPXqtzgSqB5acHHvNf91XV6Twmpc7) |
+| The rite | Séance observations: began stirring → 5× still stirring → **risen** (each a NEAR transaction the contract judged) | e.g. [first observation](https://testnet.nearblocks.io/txns/EKPSytebG9xBG8B3K64gBktshMyyc6HTcFA172RnpzB4) |
+| Raise | Contract built the Solana payout; MPC signed with the grave key; user's $FUMBLE 0 → **7,280,000** (80%); ossuary received **1,820,000** (20%); grave account left at 0 so a replay fails | [NEAR tx](https://testnet.nearblocks.io/txns/8UzsFnuyqChuhMioDTVvyHGZJh6SXY4u7fZY8aYUCpnT) · [Solana tx](https://solscan.io/tx/5tHZMXMW62g9gEvup5TitCmXwLhjYuvF9WMWDsz7yc59WCoTvpaWoDxBc5w8cKhyzekTg1wnnvxjZibrFfE6oqPt?cluster=devnet) |
+
 ## Status
 
 - ✅ Contract deployed to NEAR testnet; MPC derivation and verification proven against live attestations.
-- ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof.
-- ⏳ End-to-end testnet burial needs the Sexton's devnet SOL / Sepolia ETH (faucets need a human).
+- ✅ Full burial → rite → MPC-signed payout completed on Solana devnet (above).
+- ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof, share cards, PWA (manifest, icons, offline shell).
+- ✅ Tests: 34 contract (incl. live MPC vectors), 21 unit, 7 Playwright smoke (desktop + mobile).
+- ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
 - ⏳ Hosted deployment.
 - Mainnet is intentionally closed until the contract is audited.
 

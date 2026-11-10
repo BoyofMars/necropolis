@@ -1,5 +1,6 @@
 "use client";
 
+import { useReducedMotion } from "motion/react";
 import { useId, useMemo } from "react";
 
 /**
@@ -57,6 +58,8 @@ export function Pulse({
   label?: string;
 }) {
   const id = useId().replace(/:/g, "");
+  const reduced = useReducedMotion() ?? false;
+  const draw = animate && !reduced;
   const d = useMemo(() => tracePath(beats, width, height), [beats, width, height]);
   return (
     <svg
@@ -83,6 +86,13 @@ export function Pulse({
         )}
       </defs>
       <line x1="0" x2={width} y1={height * 0.58} y2={height * 0.58} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 6" />
+      {draw && (
+        <clipPath id={`reveal-${id}`}>
+          <rect x="0" y="-10" width="0" height={height + 20}>
+            <animate attributeName="width" from="0" to={width} dur="2.2s" fill="freeze" calcMode="spline" keySplines="0.22 1 0.36 1" keyTimes="0;1" />
+          </rect>
+        </clipPath>
+      )}
       <path
         d={d}
         fill="none"
@@ -91,20 +101,14 @@ export function Pulse({
         strokeLinejoin="round"
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"
-        pathLength={1}
+        clipPath={draw ? `url(#reveal-${id})` : undefined}
         filter={glow ? `url(#glow-${id})` : undefined}
-        style={
-          animate
-            ? { strokeDasharray: 1, strokeDashoffset: 1, animation: "pulse-draw 2.4s var(--ease-out) forwards" }
-            : undefined
-        }
       />
-      {scan && (
+      {scan && !reduced && (
         <circle r="2.6" fill={color} filter={glow ? `url(#glow-${id})` : undefined}>
           <animateMotion dur="5s" repeatCount="indefinite" path={d} />
         </circle>
       )}
-      <style>{`@keyframes pulse-draw { to { stroke-dashoffset: 0; } }`}</style>
     </svg>
   );
 }
