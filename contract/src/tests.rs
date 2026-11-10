@@ -411,3 +411,59 @@ fn markets_need_an_allowlisted_stablecoin() {
     let (anchor, accounts) = live_accounts();
     c.prepare_market(&plot_id(Chain::SolDevnet, NGMI), alive(2_020), NGMI_POOL.into(), anchor, accounts);
 }
+
+// ----------------------------------------------------------------- candles
+
+/// ed25519 seed [7; 32], signing light_candle for grave 0 (generated with @noble/curves).
+const CANDLE_MOURNER: &str = "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c";
+const CANDLE_SIG: &str = "2rJs4vt5TsrW25BFEQxXp6MXRwtnuYYYXKDPNievExTdxYaLHsxtZo5CmFQ6H17RKzoDCFcCGaAHoYpu2YALLRRj";
+
+fn grave_for_candles() -> Contract {
+    let mut c = contract();
+    ctx("necropolis.testnet", 2_000);
+    c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000, 5_000_000, true));
+    c.inter(pending(MINT_OTHER, SOL_OWNER_B, 2, 1_000, 5_000_000, true));
+    c
+}
+
+#[test]
+fn wallet_mourners_light_one_candle_per_grave_through_a_relayer() {
+    let mut c = grave_for_candles();
+    ctx("sexton.testnet", 2_100); // the relayer pays; the signature is the mourner's
+    let n = c.light_candle(0, acc(CANDLE_MOURNER), Some(CANDLE_SIG.into()));
+    assert_eq!(n.0, 1);
+    assert!(c.has_lit_candle(0, acc(CANDLE_MOURNER)));
+    ctx("alice.testnet", 2_200);
+    c.light_candle(0, acc("alice.testnet"), None);
+    c.light_candle(1, acc("alice.testnet"), None);
+    assert_eq!(c.get_candles(vec![0, 1, 9]).iter().map(|x| x.0).collect::<Vec<_>>(), vec![2, 1, 0]);
+    assert_eq!(c.get_most_mourned(Some(5)).iter().map(|(id, n)| (*id, n.0)).collect::<Vec<_>>(), vec![(0, 2), (1, 1)]);
+    assert_eq!(c.get_candle_total().0, 3);
+    assert!(get_logs().iter().any(|l| l.contains("\"candle\"")));
+}
+
+#[test]
+#[should_panic(expected = "already lit a candle here")]
+fn a_mourner_cannot_light_twice() {
+    let mut c = grave_for_candles();
+    ctx("sexton.testnet", 2_100);
+    c.light_candle(0, acc(CANDLE_MOURNER), Some(CANDLE_SIG.into()));
+    c.light_candle(0, acc(CANDLE_MOURNER), Some(CANDLE_SIG.into()));
+}
+
+#[test]
+#[should_panic(expected = "invalid mourner signature")]
+fn a_candle_signature_is_bound_to_its_grave() {
+    let mut c = grave_for_candles();
+    ctx("sexton.testnet", 2_100);
+    // the grave-0 signature replayed on grave 1
+    c.light_candle(1, acc(CANDLE_MOURNER), Some(CANDLE_SIG.into()));
+}
+
+#[test]
+#[should_panic(expected = "named mourners light their own candles")]
+fn nobody_lights_a_candle_for_a_named_account() {
+    let mut c = grave_for_candles();
+    ctx("sexton.testnet", 2_100);
+    c.light_candle(0, acc("alice.testnet"), None);
+}

@@ -54,6 +54,13 @@ fn binding_key(plot_id: &str) -> Vec<u8> {
 fn reading_key(plot_id: &str) -> Vec<u8> {
     [b"mkt:read:".as_slice(), plot_id.as_bytes()].concat()
 }
+const CANDLE_TOTAL_KEY: &[u8] = b"cdl:total";
+fn candle_key(grave_id: u64, mourner: &AccountId) -> Vec<u8> {
+    format!("cdl:{}:{}", grave_id, mourner).into_bytes()
+}
+fn candle_count_key(grave_id: u64) -> Vec<u8> {
+    format!("cdl#{}", grave_id).into_bytes()
+}
 fn raw_get<T: near_sdk::borsh::BorshDeserialize>(key: &[u8]) -> Option<T> {
     env::storage_read(key).and_then(|b| near_sdk::borsh::from_slice(&b).ok())
 }
@@ -714,6 +721,43 @@ impl Contract {
         self.authorize(&g, "transfer_grave", &[("receiver", receiver_id.to_string())], auth);
         self.internal_transfer(grave_id, &g.owner_id, &receiver_id, None);
     }
+
+    // --------------------------------------------------------------- candles
+
+    /// Light a candle on a grave: one per mourner per grave, forever. Wallet
+    /// mourners (Solana or EVM implicit accounts) sign
+    /// `action_message(.., "light_candle", grave, [mourner], nonce 0)`, so a
+    /// relayer can pay the gas without being able to forge a mourner. A named
+    /// NEAR account lights its own candle by calling directly. Candles are a
+    /// social signal and never touch funds.
+    pub fn light_candle(&mut self, grave_id: u64, mourner: AccountId, signature: Option<String>) -> U64 {
+        self.grave_or_panic(grave_id);
+        match auth::owner_kind(&mourner) {
+            auth::OwnerKind::Named => {
+                require!(env::predecessor_account_id() == mourner, "named mourners light their own candles");
+            }
+            _ => {
+                let sig = signature.unwrap_or_else(|| fail("a wallet signature from the mourner is required"));
+                let msg = auth::action_message(
+                    env::current_account_id().as_str(),
+                    "light_candle",
+                    grave_id,
+                    &[("mourner", mourner.to_string())],
+                    0,
+                );
+                require!(auth::verify_owner_signature(&mourner, &msg, &sig), "invalid mourner signature");
+            }
+        }
+        let lit = candle_key(grave_id, &mourner);
+        require!(!env::storage_has_key(&lit), "this mourner already lit a candle here");
+        env::storage_write(&lit, &[1]);
+        let count = raw_get::<u64>(&candle_count_key(grave_id)).unwrap_or(0) + 1;
+        raw_set(&candle_count_key(grave_id), &count);
+        let total = raw_get::<u64>(CANDLE_TOTAL_KEY).unwrap_or(0) + 1;
+        raw_set(CANDLE_TOTAL_KEY, &total);
+        events::emit("candle", json!({ "grave_id": grave_id, "mourner": mourner, "candles": U64(count) }));
+        U64(count)
+    }
 }
 
 // ----------------------------------------------------------------- internals
@@ -805,6 +849,18 @@ impl Contract {
         o.price_usd_e18 = U128(r.price_usd_e18);
         o.market_cap_usd = U64(r.market_cap_usd);
         (foreign::verify_args_json(&req, &expected, self.config.domain_foreign), o, binding, reading)
+    }
+
+    pub(crate) fn candles(&self, grave_id: u64) -> u64 {
+        raw_get(&candle_count_key(grave_id)).unwrap_or(0)
+    }
+
+    pub(crate) fn has_lit(&self, grave_id: u64, mourner: &AccountId) -> bool {
+        env::storage_has_key(&candle_key(grave_id, mourner))
+    }
+
+    pub(crate) fn candle_total(&self) -> u64 {
+        raw_get(CANDLE_TOTAL_KEY).unwrap_or(0)
     }
 
     pub(crate) fn pool_binding(&self, plot_id: &str) -> Option<PoolBinding> {
