@@ -284,11 +284,12 @@ interface BlockscoutTokenItem {
 export async function baseHoldings(chain: "base" | "base-sepolia", owner: string): Promise<Holding[]> {
   const host = chain === "base" ? "base.blockscout.com" : "base-sepolia.blockscout.com";
   const out: Holding[] = [];
+  type Page = { items: BlockscoutTokenItem[]; next_page_params: Record<string, string> | null };
   let next: Record<string, string> | null = null;
   for (let page = 0; page < 4; page++) {
-    const qs = new URLSearchParams({ type: "ERC-20", ...(next ?? {}) });
-    const res = await cached(`bs:${chain}:${owner}:${qs}`, 30_000, () =>
-      getJson<{ items: BlockscoutTokenItem[]; next_page_params: Record<string, string> | null }>(
+    const qs: URLSearchParams = new URLSearchParams({ type: "ERC-20", ...(next ?? {}) });
+    const res: Page = await cached<Page>(`bs:${chain}:${owner}:${qs}`, 30_000, () =>
+      getJson<Page>(
         "blockscout",
         `https://${host}/api/v2/addresses/${owner}/tokens?${qs}`,
       ),
