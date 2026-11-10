@@ -106,6 +106,22 @@ async function solanaFee(chain: ChainId) {
   return { fee_payer: sextonSolana().publicKey.toBase58(), blockhash };
 }
 
+/**
+ * Read the payout the call we just made signed. Public RPC is load balanced and
+ * a node can lag the one that executed our transaction by a block or two, so a
+ * single read may return the pre-callback record or an older signature (Solana
+ * re-raises re-sign with a fresh blockhash). Wait for a signed record newer
+ * than the one that existed before the call.
+ */
+async function freshlySigned(key: string, before: SignedPayoutJson | null): Promise<SignedPayoutJson> {
+  for (let i = 0; i < 12; i++) {
+    const p = await registry.payout(key);
+    if (p?.signed_at && p.signatures.length === p.unsigned.length && p.signed_at !== before?.signed_at) return p;
+    await new Promise((r) => setTimeout(r, 750));
+  }
+  throw new BurialError("NEAR signed the payout but the record is not visible yet. Try again in a moment.", "LAGGING", 503);
+}
+
 /** Request MPC signatures for a raise and broadcast the result. */
 export async function raiseGrave(graveId: number) {
   const g = await registry.grave(graveId);
@@ -131,8 +147,7 @@ export async function raiseGrave(graveId: number) {
   if (!ev.some((e) => e.event === "payout_signed")) {
     throw new BurialError("The MPC network did not sign the payout. Try again.", "SIGN_FAILED", 502);
   }
-  const payout = await registry.payout(`raise:${graveId}`);
-  if (!payout) throw new BurialError("Signed payout not found.", "NO_PAYOUT", 500);
+  const payout = await freshlySigned(`raise:${graveId}`, existing);
   const txs = await broadcastPayout(payout);
   return { graveId, txs, payout, nearTx: res.hash };
 }
@@ -149,12 +164,13 @@ export async function claimShare(graveId: number, eventId: number) {
     if (ossuary) await fundGas(chain, ossuary, 1, 90_000n, gas.maxFee);
     args.evm = { max_fee_per_gas: gas.max_fee_per_gas, max_priority_fee_per_gas: gas.max_priority_fee_per_gas, gas_limit: gas.gas_limit };
   }
+  const key = `share:${graveId}:${eventId}`;
+  const before = await registry.payout(key);
   const res = await callContractRaw("claim_share", args);
   if (!parseEvents(res.logs).some((e) => e.event === "payout_signed")) {
     throw new BurialError("The MPC network did not sign the claim. Try again.", "SIGN_FAILED", 502);
   }
-  const payout = await registry.payout(`share:${graveId}:${eventId}`);
-  if (!payout) throw new BurialError("Signed claim not found.", "NO_PAYOUT", 500);
+  const payout = await freshlySigned(key, before);
   return { txs: await broadcastPayout(payout), payout, nearTx: res.hash };
 }
 
