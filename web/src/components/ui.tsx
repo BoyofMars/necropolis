@@ -13,7 +13,7 @@ const base =
   "inline-flex items-center justify-center gap-2 rounded-[10px] text-sm font-semibold transition-[background,color,border,transform,box-shadow] duration-200 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] select-none";
 const variants: Record<Variant, string> = {
   primary:
-    "bg-ember text-[#1a1206] hover:bg-ember-bright shadow-[0_0_0_1px_rgba(255,205,125,.3),0_8px_30px_-10px_rgba(240,166,60,.55)]",
+    "bg-ember text-on-ember hover:bg-ember-bright shadow-[0_0_0_1px_rgba(255,205,125,.3),0_8px_30px_-10px_rgba(240,166,60,.55)]",
   ghost: "border border-line-strong text-bone hover:border-bone-3 hover:bg-loam-2",
   quiet: "text-bone-2 hover:text-bone hover:bg-loam-2",
   danger: "border border-danger/50 text-danger hover:bg-danger/10",

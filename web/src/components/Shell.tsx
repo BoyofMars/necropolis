@@ -6,6 +6,7 @@ import { BRAND } from "@/brand";
 import { NETWORK } from "@/core/near";
 import { shortAddress } from "@/core/chains";
 import { useConnectSheet, useWallets } from "@/lib/wallets";
+import { ThemeToggle } from "./ThemeToggle";
 import { cx } from "./ui";
 
 export function Mark({ size = 26, className }: { size?: number; className?: string }) {
@@ -62,10 +63,11 @@ export function Header() {
           )}
           <Link
             href="/bury"
-            className="hidden h-9 items-center rounded-[10px] bg-ember px-4 text-sm font-semibold text-[#1a1206] transition hover:bg-ember-bright md:inline-flex"
+            className="hidden h-9 items-center rounded-[10px] bg-ember px-4 text-sm font-semibold text-on-ember transition hover:bg-ember-bright md:inline-flex"
           >
             Bury a bag
           </Link>
+          <ThemeToggle />
           <button
             onClick={() => open()}
             className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-line-strong px-3 text-sm text-bone hover:border-bone-4"
@@ -107,7 +109,7 @@ export function TabBar() {
           if (t.href === "/bury") {
             return (
               <Link key={t.href} href={t.href} className="flex flex-col items-center justify-center" aria-label="Bury a bag">
-                <span className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full border border-ember-bright/30 bg-ember text-[#1a1206] shadow-[0_8px_30px_-6px_rgba(240,166,60,.6)]">
+                <span className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full border border-ember-bright/30 bg-ember text-on-ember shadow-[0_8px_30px_-6px_rgba(240,166,60,.6)]">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                     <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
                   </svg>

@@ -241,7 +241,7 @@ export function Scanner() {
                     {canBury && (
                       <Link
                         href={`/bury?chain=${q.data!.chain}&token=${e.address}&amount=${e.amountRaw}`}
-                        className="rounded-[8px] bg-ember/90 px-3 py-1.5 text-xs font-semibold text-[#1a1206] hover:bg-ember-bright"
+                        className="rounded-[8px] bg-ember/90 px-3 py-1.5 text-xs font-semibold text-on-ember hover:bg-ember-bright"
                       >
                         Bury
                       </Link>
