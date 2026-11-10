@@ -1,0 +1,27 @@
+# deps / builds
+node_modules/
+.next/
+out/
+build/
+dist/
+target/
+*.tsbuildinfo
+next-env.d.ts
+
+# env & secrets — never commit keys
+.env
+.env.*
+!.env.example
+*.pem
+**/credentials/
+.near-credentials/
+*.keypair.json
+sexton-*.json
+
+# tooling
+.vercel
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+npm-debug.log*
