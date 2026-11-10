@@ -3,7 +3,8 @@ import { BRAND } from "@/brand";
 import { HeroMechanic } from "@/components/landing/HeroMechanic";
 import { LiveStats } from "@/components/landing/LiveStats";
 import { FadingField, Reveal } from "@/components/landing/Reveal";
-import { Pulse, syntheticBeats } from "@/components/Pulse";
+import { Pulse } from "@/components/Pulse";
+import { syntheticBeats } from "@/lib/beats";
 import { ButtonLink } from "@/components/ui";
 
 const TICKERS =

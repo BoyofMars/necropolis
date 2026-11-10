@@ -17,12 +17,13 @@ const A: Chip = { id: "fumble", sym: "FUMBLE", chain: "sol" };
 const B: Chip = { id: "wenlambo", sym: "WENLAMBO", chain: "base" };
 const C: Chip = { id: "hopium", sym: "HOPIUM", chain: "sol" };
 
-function TokenChip({ chip, faded, returning }: { chip: Chip; faded?: boolean; returning?: boolean }) {
+function TokenChip({ chip, faded, returning, compact }: { chip: Chip; faded?: boolean; returning?: boolean; compact?: boolean }) {
   return (
     <motion.span
       layoutId={returning ? undefined : `chip-${chip.id}`}
       className={cx(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide",
+        "inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border font-semibold tracking-wide",
+        compact ? "px-1.5 py-0.5 text-[8.5px] sm:text-[9.5px]" : "px-2.5 py-1 text-[11px]",
         returning ? "border-ember/60 bg-ember/15 text-ember-bright" : "border-line-strong bg-loam-3 text-bone-2",
         faded && "opacity-50",
       )}
@@ -134,14 +135,12 @@ export function HeroMechanic() {
                   animate={glow ? { boxShadow: risen ? "0 0 38px -6px rgba(240,166,60,.6)" : "0 0 18px -6px rgba(240,166,60,.45)" } : { boxShadow: "0 0 0 0 rgba(0,0,0,0)" }}
                   transition={{ duration: 0.8 }}
                 >
-                  <span className={cx("inscription text-[9px] sm:text-[10px]", glow ? "text-ember-bright" : "text-bone-4")}>Nº {g.n}</span>
-                  <div className="mt-1 flex h-6 items-center justify-center">
+                  <span className={cx("font-display text-[11px] sm:text-[13px]", glow ? "text-ember-bright" : "text-bone-3")}>Nº {g.n}</span>
+                  <div className="mt-1 flex h-6 w-full items-center justify-center overflow-hidden">
                     {g.chip ? (
-                      <span className="origin-bottom scale-[.78] sm:scale-90">
-                        <TokenChip chip={g.chip} />
-                      </span>
+                      <TokenChip chip={g.chip} compact />
                     ) : (
-                      <span className="text-[9px] font-semibold tracking-wide text-bone-4 sm:text-[10px]">{g.preset ? `$${g.preset}` : ""}</span>
+                      <span className="truncate text-[8.5px] font-semibold tracking-wide text-bone-4 sm:text-[9.5px]">{g.preset ? `$${g.preset}` : ""}</span>
                     )}
                   </div>
                 </motion.div>
