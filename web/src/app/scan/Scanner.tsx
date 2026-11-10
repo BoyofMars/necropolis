@@ -24,6 +24,17 @@ function chainFor(address: string, net: Net): ChainId | null {
   return net === "mainnet" ? "base" : "base-sepolia";
 }
 
+/** Coins whose Necropolis plot rose aren't counted among the dead: they came back. */
+function headline(s: ScanResult): string {
+  const total = s.entries.length;
+  if (total === 0) return "No tokens found.";
+  const back = s.entries.filter((e) => e.risen).length;
+  const dying = s.entries.filter((e) => !e.risen && (e.diagnosis.condition === "DEAD" || e.diagnosis.condition === "CRITICAL")).length;
+  const cameBack = back > 0 ? ` ${back} came back.` : "";
+  if (dying > 0) return `${dying} of ${total} tokens ${dying === 1 ? "is" : "are"} dead or dying.${cameBack}`;
+  return back > 0 ? `${back} came back. The rest are breathing.` : `${total} tokens, all still breathing.`;
+}
+
 export function Scanner() {
   const params = useSearchParams();
   const router = useRouter();
@@ -166,13 +177,7 @@ export function Scanner() {
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <div className="eyebrow">{CHAINS[q.data.chain].name} · {shortAddress(q.data.owner, 6, 6)}</div>
-              <h2 className="mt-2 font-display text-4xl text-bone sm:text-5xl">
-                {q.data.counts.total === 0
-                  ? "No tokens found."
-                  : q.data.counts.dead + q.data.counts.critical > 0
-                    ? `${q.data.counts.dead + q.data.counts.critical} of ${q.data.counts.total} tokens are dead or dying.`
-                    : `${q.data.counts.total} tokens, all still breathing.`}
-              </h2>
+              <h2 className="mt-2 font-display text-4xl text-bone sm:text-5xl">{headline(q.data)}</h2>
             </div>
             <div className="flex flex-col items-start gap-2 sm:items-end">
               {q.data.counts.total > 0 && (
