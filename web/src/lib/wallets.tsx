@@ -1,6 +1,7 @@
 "use client";
 
 import { useWallet } from "@solana/wallet-adapter-react";
+import bs58 from "bs58";
 import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useAccount, useConnect, useConnectors, useDisconnect } from "wagmi";
@@ -8,6 +9,23 @@ import { Sheet } from "@/components/Sheet";
 import { Button, Mono, cx } from "@/components/ui";
 import { shortAddress, type ChainId } from "@/core/chains";
 import { NETWORK } from "@/core/near";
+
+/**
+ * NEAR implicit owner ids for connected wallets: a Solana key is a 64-hex
+ * implicit account; an EVM address is an eth-implicit account (NEP-518).
+ */
+export function ownerIds(w: { sol: string | null; evm: string | null }): string[] {
+  const ids: string[] = [];
+  if (w.sol) {
+    try {
+      ids.push(Array.from(bs58.decode(w.sol), (b) => b.toString(16).padStart(2, "0")).join(""));
+    } catch {
+      /* invalid key */
+    }
+  }
+  if (w.evm) ids.push(w.evm.toLowerCase());
+  return ids;
+}
 
 export const SOL_CHAIN: ChainId = NETWORK === "mainnet" ? "sol" : "sol-devnet";
 export const EVM_CHAIN: ChainId = NETWORK === "mainnet" ? "base" : "base-sepolia";
