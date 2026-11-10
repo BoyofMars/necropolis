@@ -17,10 +17,22 @@ const display = Cormorant_Garamond({
 const ui = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-ui", display: "swap" });
 const data = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-data", display: "swap" });
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+/** Absolute base for OG/share URLs. Tolerates stray whitespace/BOMs in env values. */
+function siteUrl(): URL {
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/[^\x21-\x7e]/g, "");
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "";
+  for (const c of [raw, vercel, "http://localhost:3000"]) {
+    try {
+      if (c) return new URL(c);
+    } catch {
+      /* try next */
+    }
+  }
+  return new URL("http://localhost:3000");
+}
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE),
+  metadataBase: siteUrl(),
   title: { default: `${BRAND.name} — ${BRAND.tagline}`, template: `%s · ${BRAND.name}` },
   description: BRAND.description,
   applicationName: BRAND.name,

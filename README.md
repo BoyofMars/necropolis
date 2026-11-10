@@ -11,7 +11,7 @@
 | **Contract** | [`necropolis.testnet`](https://testnet.nearblocks.io/address/necropolis.testnet) (NEAR testnet) |
 | **MPC signer** | [`v1.signer-prod.testnet`](https://testnet.nearblocks.io/address/v1.signer-prod.testnet) (Chain Signatures + foreign-chain verification) |
 | **Origin chains** | Solana devnet, Base Sepolia (mainnet chains are coded but closed) |
-| **Live demo** | *deployment pending (see [Status](#status))* |
+| **Live demo** | **https://necropolis-wine.vercel.app** (testnet) |
 | **Tracks** | Memecoins With Mechanics · Open Innovation · NFTs That Do Something |
 
 ---
@@ -152,7 +152,7 @@ The first passing observation makes the plot **stirring**. It **rises** after 14
 1. **Contract tests:** `cd contract && cargo test --lib` → 34 tests pass, including `matches_live_mpc_base_sepolia_vector` and `matches_live_mpc_solana_devnet_vector`, which reproduce live MPC attestations byte for byte.
 2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 21 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation.
 3. **Read the registry:** `near contract call-function as-read-only necropolis.testnet get_ossuary json-args '{"chain":"sol-devnet"}' network-config testnet now` → `3dowrH8pUtmCzKR8DwsK9rHq2gBGqiV8FTzK2tZA45Mx`.
-4. **Run the app:** `cd web && cp .env.example .env.local && npm run dev`, then open:
+4. **Use the live app** at https://necropolis-wine.vercel.app (or run it: `cd web && cp .env.example .env.local && npm run dev`), then open:
    - `/scan`: paste any Solana or Base mainnet wallet and see its tokens triaged Dead / Critical / Fading / Alive, each with its reasons.
    - `/token/base/0x47b464eDB8Dc9BC67b5CD4C9310BB87b773845bD` ($NORMIE): the full autopsy, with death score, life chart, evidence table and provenance.
    - `/discover`: the register of 36 crashed coins, only 4 pronounced.
@@ -225,7 +225,7 @@ web/        Next.js 16 app
 - ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof, share cards, PWA (manifest, icons, offline shell).
 - ✅ Tests: 34 contract (incl. live MPC vectors), 21 unit, 7 Playwright smoke (desktop + mobile).
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
-- ⏳ Hosted deployment.
+- ✅ Hosted at https://necropolis-wine.vercel.app (Vercel). A second real burial ran against production: Grave Nº 000001 ($COPIUM) minted 20.7 s after signing ([NEAR tx](https://testnet.nearblocks.io/txns/8XY71n79EGuB3XkkdsNK19ijaE7X1DFc6aw4jCoPUv3s)). Grave NFTs resolve their live art via `base_uri` → `/api/grave/<id>/image.svg`.
 - Mainnet is intentionally closed until the contract is audited.
 
 ## License

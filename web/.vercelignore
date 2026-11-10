@@ -1,0 +1,9 @@
+.env
+.env.local
+.env.*.local
+.e2e-user.json
+node_modules
+.next
+test-results
+playwright-report
+coverage
