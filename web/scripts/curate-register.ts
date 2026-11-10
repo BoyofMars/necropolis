@@ -9,7 +9,8 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { diagnose } from "../src/core/death";
 import { getDossier } from "../src/server/dossier";
-import { dexSearch } from "../src/server/providers";
+import { getJson } from "../src/server/http";
+import { dexSearch, type JupToken } from "../src/server/providers";
 
 const CANDIDATES: { q: string; chain: "solana" | "base" }[] = [
   ...[
@@ -26,16 +27,36 @@ async function main() {
   const out: unknown[] = [];
   for (const c of CANDIDATES) {
     try {
-      const pairs = (await dexSearch(c.q)).filter(
-        (p) => p.chainId === c.chain && p.baseToken.symbol.toUpperCase() === c.q.toUpperCase(),
-      );
-      if (pairs.length === 0) {
-        console.log(`- ${c.q}: no exact match`);
+      // Identity matters more than coverage: a copycat with the same ticker must
+      // never stand in for the original. Solana → Jupiter's ranked search,
+      // preferring verified tokens; Base → pairs with a DexScreener profile.
+      let token: string | undefined;
+      let match = "";
+      if (c.chain === "solana") {
+        const res = await getJson<JupToken[]>("jupiter", `https://lite-api.jup.ag/tokens/v2/search?query=${c.q}`);
+        const exact = res.filter((t) => t.symbol.toUpperCase() === c.q.toUpperCase());
+        const pick =
+          exact.find((t) => (t as JupToken & { isVerified?: boolean }).isVerified) ??
+          exact.sort((a, b) => (b.holderCount ?? 0) - (a.holderCount ?? 0))[0];
+        if (pick) {
+          token = pick.id;
+          match = (pick as JupToken & { isVerified?: boolean }).isVerified ? "jupiter-verified" : "jupiter-most-holders";
+        }
+        await new Promise((r) => setTimeout(r, 2_200));
+      } else {
+        const pairs = (await dexSearch(c.q)).filter(
+          (p) => p.chainId === c.chain && p.baseToken.symbol.toUpperCase() === c.q.toUpperCase() && p.info,
+        );
+        pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
+        if (pairs[0]) {
+          token = pairs[0].baseToken.address;
+          match = "dexscreener-profile";
+        }
+      }
+      if (!token) {
+        console.log(`- ${c.q}: no confident match`);
         continue;
       }
-      // the original token is usually the oldest pair with that ticker
-      pairs.sort((a, b) => (a.pairCreatedAt ?? Infinity) - (b.pairCreatedAt ?? Infinity));
-      const token = pairs[0].baseToken.address;
       const chain = c.chain === "solana" ? "sol" : "base";
       const dossier = await getDossier(chain, token, { history: true, safety: false });
       const d = diagnose(dossier);
@@ -56,15 +77,18 @@ async function main() {
         athPriceUsd: d.athPriceUsd ?? null,
         drawdown: d.drawdownFromAth ?? null,
         liquidityUsd: dossier.vitals.liquidityUsd?.value ?? null,
+        match,
         checkedAt: Date.now(),
       });
     } catch (e) {
       console.log(`! ${c.q}: ${(e as Error).message}`);
     }
   }
-  const keep = (out as { condition: string }[]).filter((x) => x.condition === "DEAD" || x.condition === "CRITICAL");
+  // Keep every verdict: the register shows the dead AND the famous crashes that are still breathing.
+  const keep = (out as { condition: string }[]).filter((x) => x.condition !== "UNKNOWN");
   writeFileSync(join(process.cwd(), "src/core/register-seed.json"), JSON.stringify(keep, null, 2));
-  console.log(`\nkept ${keep.length} of ${out.length} (written to src/core/register-seed.json)`);
+  const dead = keep.filter((x) => x.condition === "DEAD" || x.condition === "CRITICAL").length;
+  console.log(`\n${dead} of ${keep.length} notable crashed tokens pronounced dead/critical (written to src/core/register-seed.json)`);
 }
 
 main();
