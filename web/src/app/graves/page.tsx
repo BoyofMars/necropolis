@@ -7,6 +7,7 @@ import { Button, ButtonLink, Notice, Panel } from "@/components/ui";
 import { registry } from "@/core/near";
 import { usePrefs } from "@/lib/prefs";
 import { ownerIds, useConnectSheet, useWallets } from "@/lib/wallets";
+import { BonesPanel } from "./BonesPanel";
 
 export default function MyGraves() {
   const w = useWallets();
@@ -60,6 +61,10 @@ export default function MyGraves() {
           </div>
         </>
       )}
+
+      {ids.map((id) => (
+        <BonesPanel key={id} holder={id} />
+      ))}
 
       {prefs.watchlist.length > 0 && (
         <section className="mt-16">

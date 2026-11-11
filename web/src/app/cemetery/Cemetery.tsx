@@ -54,12 +54,13 @@ export function Cemetery() {
 
       {q.isError && <div className="mt-8"><Notice tone="danger">The NEAR RPC is not responding. {(q.error as Error).message}</Notice></div>}
 
-      <dl className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-[16px] border border-line bg-line sm:grid-cols-5">
+      <dl className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-[16px] border border-line bg-line sm:grid-cols-3 lg:grid-cols-6">
         {[
           ["Graves", q.data?.stats.graves],
           ["Plots", q.data?.stats.plots],
           ["Risings", q.data?.stats.events],
           ["Value buried", q.data ? usd(Number(q.data.stats.total_value_buried_usd_e6) / 1e6, { precise: true }) : undefined],
+          ["$BONES supply", q.data ? (Number(q.data.stats.bones_supply ?? 0) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 }) : undefined],
           ["Solana · Base", q.data ? `${chainSplit.Solana ?? 0} · ${chainSplit.Base ?? 0}` : undefined],
         ].map(([k, v]) => (
           <div key={k as string} className="bg-loam-1 px-5 py-4">

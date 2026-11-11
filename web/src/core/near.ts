@@ -164,6 +164,7 @@ export interface StatsJson {
   events: number;
   total_active_weight_usd_e6: U128;
   total_value_buried_usd_e6: U128;
+  bones_supply?: U128;
 }
 
 export interface SignedPayoutJson {
@@ -185,6 +186,27 @@ export interface ShareJson {
   eligible: boolean;
   reason: string | null;
   claimed: boolean;
+}
+
+/** $BONES (NEP-141 on the registry contract): 6 decimals, 1 BONES = $1 of ossuary weight. */
+export const BONES_DECIMALS = 6;
+
+export interface BonesShareJson {
+  event_id: number;
+  holder: string;
+  balance_at_rising: U128;
+  supply_at_rising: U128 | null;
+  amount: U128 | null;
+  eligible: boolean;
+  reason: string | null;
+  claimed: boolean;
+}
+
+export interface GraveBonesJson {
+  minted_to: string;
+  amount: U128;
+  burned: U128;
+  settled: boolean;
 }
 
 /** A plot's market, fixed by its first MPC-verified reading. */
@@ -226,6 +248,11 @@ export const registry = {
   nonce: (owner: string) => nearView<U64>("get_nonce", { owner_id: owner }),
   graveIdForPath: (path: string) => nearView<number | null>("grave_id_for_path", { path }),
   config: () => nearView<Record<string, unknown>>("get_config"),
+  bonesBalance: (account: string) => nearView<U128>("ft_balance_of", { account_id: account }),
+  bonesSupply: () => nearView<U128>("ft_total_supply"),
+  bonesGenesis: () => nearView<number | null>("get_bones_genesis"),
+  bonesShare: (eventId: number, holder: string) => nearView<BonesShareJson | null>("get_bones_share", { event_id: eventId, holder }),
+  graveBones: (graveId: number) => nearView<GraveBonesJson | null>("get_grave_bones", { grave_id: graveId }),
   candles: (graveIds: number[]) => nearView<U64[]>("get_candles", { grave_ids: graveIds }),
   hasLit: (graveId: number, mourner: string) => nearView<boolean>("has_lit_candle", { grave_id: graveId, mourner }),
   mostMourned: (limit = 10) => nearView<[number, U64][]>("get_most_mourned", { limit }),
@@ -252,6 +279,18 @@ export function actionMessage(action: string, graveId: number, fields: [string, 
   let m = `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: ${action}\ngrave: ${graveId}\n`;
   for (const [k, v] of fields) m += `${k}: ${v}\n`;
   return m + `nonce: ${nonce}`;
+}
+
+/** Account-level action (no grave line), e.g. a $BONES transfer. Mirrors `auth::account_message`. */
+export function accountMessage(action: string, fields: [string, string][], nonce: number): string {
+  let m = `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: ${action}\n`;
+  for (const [k, v] of fields) m += `${k}: ${v}\n`;
+  return m + `nonce: ${nonce}`;
+}
+
+/** What a wallet signs to move $BONES. `amount` is in base units (6 decimals). */
+export function bonesTransferMessage(receiver: string, amount: string, nonce: number): string {
+  return accountMessage("transfer_bones", [["receiver", receiver], ["amount", amount]], nonce);
 }
 
 /** What a mourner signs to light a candle (one per wallet per grave, so nonce 0). */
