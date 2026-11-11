@@ -53,6 +53,15 @@ export function CryptView({ id }: { id: number }) {
       const issued = Math.floor(Date.now() / 1000);
       const message = cryptMessage(id, issued);
       setState({ k: "signing" });
+      if ((owner && signerKind(owner) === "near") || (!w.sol && !w.evm)) {
+        // NEAR accounts sign in with NEP-413; the server checks the key is the owner's.
+        if (!w.near) throw new Error("This grave is held by a NEAR account. Connect it with a NEAR wallet.");
+        const nep413 = await w.nearWallet.signMessage(message);
+        setState({ k: "checking" });
+        const c = await post<Crypt>("/api/crypt", { graveId: id, issued, nep413 });
+        setState({ k: "open", c });
+        return;
+      }
       let signature: string;
       let signer: string;
       if (useSol && w.sol) {

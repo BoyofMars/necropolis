@@ -201,6 +201,35 @@ export async function claimBones(eventId: number, holder: string) {
   return { txs: await broadcastPayout(payout), payout, nearTx: res.hash };
 }
 
+/**
+ * For a named NEAR holder, who sends `claim_bones` from their own wallet: the
+ * fee-payer / gas fields the payout needs on the risen coin's chain.
+ */
+export async function claimChainArgs(eventId: number) {
+  const ev = (await registry.events()).find((e) => e.id === eventId);
+  if (!ev) throw new BurialError("Resurrection event not found.", "NOT_FOUND", 404);
+  const chain = ev.chain as ChainId;
+  if (CHAINS[chain].family === "solana") return { chain, solana: await solanaFee(chain), evm: null };
+  const gas = await evmGas(chain);
+  const ossuary = await registry.ossuary(ev.chain);
+  if (ossuary) await fundGas(chain, ossuary, 1, 90_000n, gas.maxFee);
+  return {
+    chain,
+    solana: null,
+    evm: { max_fee_per_gas: gas.max_fee_per_gas, max_priority_fee_per_gas: gas.max_priority_fee_per_gas, gas_limit: gas.gas_limit },
+  };
+}
+
+/** Broadcast a payout the MPC network already signed (anyone may; the destination is fixed in it). */
+export async function broadcastSigned(key: string) {
+  for (let i = 0; i < 20; i++) {
+    const p = await registry.payout(key);
+    if (p?.signed_at && p.signatures.length === p.unsigned.length) return { txs: await broadcastPayout(p), payout: p };
+    await new Promise((r) => setTimeout(r, 1_000));
+  }
+  throw new BurialError("No signed payout found for this claim yet.", "NOT_SIGNED", 404);
+}
+
 export function explorerFor(chain: ChainId, sig: string) {
   return CHAINS[chain].explorer.tx(sig);
 }

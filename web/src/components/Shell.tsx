@@ -76,8 +76,12 @@ export function Header() {
             {w.any ? (
               <>
                 <span className="h-1.5 w-1.5 rounded-full bg-alive" />
-                <span className="font-mono text-xs">{shortAddress((w.sol ?? w.evm) as string, 4, 4)}</span>
-                {w.sol && w.evm && <span className="text-bone-3">+1</span>}
+                <span className="max-w-[9rem] truncate font-mono text-xs">
+                  {w.sol || w.evm ? shortAddress((w.sol ?? w.evm) as string, 4, 4) : w.near}
+                </span>
+                {[w.sol, w.evm, w.near].filter(Boolean).length > 1 && (
+                  <span className="text-bone-3">+{[w.sol, w.evm, w.near].filter(Boolean).length - 1}</span>
+                )}
               </>
             ) : (
               "Connect"

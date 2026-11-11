@@ -8,6 +8,7 @@ import { base, baseSepolia } from "wagmi/chains";
 import { injected } from "wagmi/connectors";
 import { NETWORK } from "@/core/near";
 import { BurnerWalletAdapter } from "@/lib/burner";
+import { NearWalletProvider } from "@/lib/nearWallet";
 import { PrefsProvider } from "@/lib/prefs";
 
 const SOLANA_ENDPOINT =
@@ -34,7 +35,9 @@ export function Providers({ children }: { children: ReactNode }) {
       <WagmiProvider config={wagmiConfig}>
         <ConnectionProvider endpoint={SOLANA_ENDPOINT}>
           <WalletProvider wallets={wallets} autoConnect>
-            <PrefsProvider>{children}</PrefsProvider>
+            <NearWalletProvider>
+              <PrefsProvider>{children}</PrefsProvider>
+            </NearWalletProvider>
           </WalletProvider>
         </ConnectionProvider>
       </WagmiProvider>

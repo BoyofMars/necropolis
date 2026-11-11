@@ -10,12 +10,14 @@ import { Button, Mono, cx } from "@/components/ui";
 import { shortAddress, type ChainId } from "@/core/chains";
 import { NETWORK } from "@/core/near";
 import { BurnerWalletName, exportBurnerSecret } from "@/lib/burner";
+import { useNearWallet } from "@/lib/nearWallet";
 
 /**
  * NEAR implicit owner ids for connected wallets: a Solana key is a 64-hex
  * implicit account; an EVM address is an eth-implicit account (NEP-518).
  */
-export function ownerIds(w: { sol: string | null; evm: string | null }): string[] {
+export function ownerIds(w: { sol: string | null; evm: string | null; near?: string | null }): string[] {
+  // Order matters to callers: Solana, then EVM, then a named NEAR account.
   const ids: string[] = [];
   if (w.sol) {
     try {
@@ -25,25 +27,32 @@ export function ownerIds(w: { sol: string | null; evm: string | null }): string[
     }
   }
   if (w.evm) ids.push(w.evm.toLowerCase());
+  if (w.near) ids.push(w.near);
   return ids;
 }
 
 export const SOL_CHAIN: ChainId = NETWORK === "mainnet" ? "sol" : "sol-devnet";
 export const EVM_CHAIN: ChainId = NETWORK === "mainnet" ? "base" : "base-sepolia";
 
-/** Unified view of the user's origin-chain wallets. NEAR stays invisible. */
+/**
+ * Unified view of the user's wallets: Solana and Base for burying, plus an
+ * optional named NEAR account for NEAR-native holders.
+ */
 export function useWallets() {
   const sol = useWallet();
   const evm = useAccount();
+  const near = useNearWallet();
   return useMemo(
     () => ({
       sol: sol.publicKey ? sol.publicKey.toBase58() : null,
       evm: evm.address ? evm.address.toLowerCase() : null,
+      near: near.accountId,
       solWallet: sol,
+      nearWallet: near,
       evmChainId: evm.chainId,
-      any: !!sol.publicKey || !!evm.address,
+      any: !!sol.publicKey || !!evm.address || !!near.accountId,
     }),
-    [sol, evm.address, evm.chainId],
+    [sol, evm.address, evm.chainId, near],
   );
 }
 
@@ -70,6 +79,7 @@ export function ConnectProvider({ children }: { children: ReactNode }) {
 function ConnectBody({ focus, onDone }: { focus: "solana" | "evm" | "both"; onDone: () => void }) {
   const sol = useWallet();
   const evm = useAccount();
+  const near = useNearWallet();
   const connectors = useConnectors();
   const { mutateAsync: connectEvm, isPending: evmPending } = useConnect();
   const { mutate: disconnectEvm } = useDisconnect();
@@ -222,6 +232,43 @@ function ConnectBody({ focus, onDone }: { focus: "solana" | "evm" | "both"; onDo
                 </button>
               ))}
             </div>
+          )}
+        </section>
+      )}
+      {focus === "both" && (
+        <section>
+          <div className="eyebrow mb-2">NEAR {NETWORK === "testnet" && "· testnet"} · optional</div>
+          {near.accountId ? (
+            <div className="flex items-center justify-between gap-3 rounded-[10px] border border-line bg-loam-2 px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-sm text-bone">NEAR account</div>
+                <Mono>{near.accountId.length > 30 ? shortAddress(near.accountId, 10, 10) : near.accountId}</Mono>
+              </div>
+              <Button variant="quiet" size="sm" onClick={() => near.disconnect()}>
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <>
+              <button
+                className="flex h-12 w-full items-center gap-3 rounded-[10px] border border-line bg-loam-2 px-4 text-left text-sm text-bone transition hover:border-bone-4 hover:bg-loam-3"
+                onClick={async () => {
+                  setErr(null);
+                  onDone();
+                  try {
+                    await near.connect();
+                  } catch (e) {
+                    setErr((e as Error).message || "Couldn't open the NEAR wallet selector.");
+                  }
+                }}
+              >
+                <span className="flex h-[22px] w-[22px] items-center justify-center rounded bg-bone text-[11px] font-bold text-loam">N</span>
+                Connect a NEAR wallet
+              </button>
+              <p className="mt-2 text-xs text-bone-4">
+                Not needed to bury. Use it to hold graves and $BONES in a NEAR account: HOT, Intear or MyNearWallet.
+              </p>
+            </>
           )}
         </section>
       )}

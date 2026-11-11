@@ -8,7 +8,7 @@ Necropolis is a NEAR contract plus a Next.js app. Everything below runs without 
 # 1. Contract: 58 unit tests, incl. three live MPC attestation vectors and the sale-mid-payout cases
 cd contract && cargo test --lib
 
-# 2. App engine: 35 unit tests (death model, rite, derivation, simulation, signed-message formats)
+# 2. App engine: 36 unit tests (death model, rite, derivation, simulation, signed-message formats, NEP-413)
 cd ../web && npm install --legacy-peer-deps && npm test
 
 # 3. Live state: re-checks every claim the README makes about testnet, from public RPCs only

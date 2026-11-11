@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useSignMessage } from "wagmi";
 import { Button, Panel, cx } from "@/components/ui";
 import { CHAINS, shortAddress, type ChainId } from "@/core/chains";
-import { formatBones, nearTxUrl, parseBones, type GraveJson } from "@/core/near";
+import { CONTRACT_ID, formatBones, nearTxUrl, parseBones, type GraveJson } from "@/core/near";
 import { post } from "@/lib/api";
-import { canonicalPayout, encodeSolanaSignature, prepareOwnerAction, receiverAccountId, signerKind, type OwnerAction } from "@/lib/ownerAction";
+import { CONTRACT_ARG, canonicalPayout, encodeSolanaSignature, prepareOwnerAction, receiverAccountId, signerKind, type OwnerAction } from "@/lib/ownerAction";
 import { useWallets } from "@/lib/wallets";
 
 type Step =
@@ -67,6 +67,12 @@ export function Keeper({ g, inside, onDone }: { g: GraveJson; inside: string; on
               ? "The receiver controls it with that EVM wallet."
               : "The receiver controls it with that NEAR account, and needs to set a payout address.";
       }
+      if (kind === "near") {
+        // Named NEAR owners act with their own NEAR transaction: the contract checks the caller.
+        const message = `${CONTRACT_ID}.${action}({ grave_id: ${g.id}, ${CONTRACT_ARG[action]}: ${JSON.stringify(value)} })\nfrom ${g.owner_id}`;
+        setStep({ k: "review", action, value, message, nonce: 0, note });
+        return;
+      }
       const { message, nonce } = await prepareOwnerAction(g.owner_id, action, g.id, value);
       setStep({ k: "review", action, value, message, nonce, note });
     } catch (e) {
@@ -77,6 +83,15 @@ export function Keeper({ g, inside, onDone }: { g: GraveJson; inside: string; on
   const sign = async (s: Extract<Step, { k: "review" }>) => {
     setStep({ k: "signing", action: s.action });
     try {
+      if (kind === "near") {
+        if (w.near !== g.owner_id) throw new Error(`Connect ${g.owner_id} with a NEAR wallet first.`);
+        const nearTx = await w.nearWallet.call(s.action, { grave_id: g.id, [CONTRACT_ARG[s.action]]: s.value, auth: null }, { tgas: 50 });
+        setStep({ k: "done", action: s.action, nearTx });
+        if (s.action === "transfer_grave") setReceiver("");
+        if (s.action === "exhume_bones") setExhume("");
+        onDone();
+        return;
+      }
       let signature: string;
       if (kind === "solana") {
         const sm = w.solWallet.signMessage;
@@ -176,10 +191,14 @@ export function Keeper({ g, inside, onDone }: { g: GraveJson; inside: string; on
     <Panel className="p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-2xl text-bone">Keeper&rsquo;s ledger</h2>
-        <span className="text-xs text-bone-4">Signed by your {kind === "solana" ? "Solana" : "EVM"} wallet · no fee</span>
+        <span className="text-xs text-bone-4">
+          {kind === "near" ? "Sent from your NEAR account" : `Signed by your ${kind === "solana" ? "Solana" : "EVM"} wallet · no fee`}
+        </span>
       </div>
       <p className="mt-1 text-sm text-bone-3">
-        Your wallet signs a plain message. NEAR checks the signature against this grave&rsquo;s owner, so nobody else can make these changes, not even the relayer.
+        {kind === "near"
+          ? "This grave belongs to a NEAR account, so you act with a NEAR transaction from it. The contract checks the caller is the grave's owner."
+          : "Your wallet signs a plain message. NEAR checks the signature against this grave's owner, so nobody else can make these changes, not even the relayer."}
       </p>
       <ul className="mt-4 divide-y divide-line rounded-[12px] border border-line">
         {rows.map((r) => {
@@ -207,7 +226,7 @@ export function Keeper({ g, inside, onDone }: { g: GraveJson; inside: string; on
                   {s?.k === "review" ? (
                     <div className="space-y-3">
                       <div>
-                        <div className="eyebrow">Your wallet will sign exactly this</div>
+                        <div className="eyebrow">{kind === "near" ? "Your NEAR wallet will send this transaction" : "Your wallet will sign exactly this"}</div>
                         <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-[10px] border border-line bg-loam px-3 py-2 font-mono text-[11px] leading-relaxed text-bone-2">
                           {s.message}
                         </pre>

@@ -7,7 +7,8 @@ import { Button, Panel, cx } from "@/components/ui";
 import { bonesTransferMessage, formatBones as fmt, nearTxUrl, parseBones as toBase, registry, type EventJson } from "@/core/near";
 import { post } from "@/lib/api";
 import { compact } from "@/lib/format";
-import { encodeSolanaSignature, receiverAccountId, signerKind } from "@/lib/ownerAction";
+import { CHAINS, shortAddress, type ChainId } from "@/core/chains";
+import { canonicalPayout, encodeSolanaSignature, receiverAccountId, signerKind } from "@/lib/ownerAction";
 import { useWallets } from "@/lib/wallets";
 
 async function load(holder: string) {
@@ -61,19 +62,60 @@ export function BonesPanel({ holder }: { holder: string }) {
 
 function ShareRow({ e, s, holder }: { e: EventJson; s: Awaited<ReturnType<typeof registry.bonesShare>>; holder: string }) {
   const qc = useQueryClient();
+  const w = useWallets();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [to, setTo] = useState("");
   const amount = s?.amount ? Number(s.amount) / 10 ** e.decimals : 0;
+  const named = signerKind(holder) === "near";
+  const chain = CHAINS[e.chain as ChainId];
+
+  // A named NEAR account has no key on Solana or Base, so it names a recipient
+  // and sends claim_bones itself; we then broadcast the payout MPC signed.
+  const claimNamed = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (w.near !== holder) throw new Error(`Connect ${holder} with a NEAR wallet first.`);
+      const recipient = canonicalPayout(e.chain as ChainId, to);
+      const a = await post<{ solana: unknown; evm: unknown }>("/api/bones/claim-args", { eventId: e.id });
+      await w.nearWallet.call("claim_bones", { event_id: e.id, holder, recipient, auth: null, solana: a.solana, evm: a.evm }, { tgas: 300 });
+      const r = await post<{ txs: string[] }>("/api/bones/broadcast", { eventId: e.id, holder });
+      setMsg(`Paid to ${shortAddress(recipient, 4, 4)} · ${r.txs[0]?.slice(0, 8)}…`);
+      qc.invalidateQueries({ queryKey: ["bones", holder] });
+    } catch (err) {
+      setMsg((err as Error).message.split("\n")[0]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-3">
-      <div>
+      <div className="min-w-0">
         <div className="text-sm text-bone">${e.symbol} rose</div>
         <div className="text-xs text-bone-3">
           {s?.eligible ? `${compact(amount)} $${e.symbol} for ${fmt(s.balance_at_rising)} BONES held at the rising` : s?.reason ?? "…"}
         </div>
         {msg && <div className="mt-1 text-xs text-bone-2">{msg}</div>}
       </div>
+      {s?.eligible && !s.claimed && named && (
+        <div className="flex w-full gap-2">
+          <input
+            aria-label={`Recipient on ${chain.name}`}
+            value={to}
+            onChange={(ev) => setTo(ev.target.value)}
+            placeholder={`Your ${chain.name} address`}
+            spellCheck={false}
+            className="h-9 min-w-0 flex-1 rounded-[10px] border border-line-strong bg-loam px-3 font-mono text-xs text-bone placeholder:font-sans placeholder:text-bone-4 focus:border-bone-3 focus:outline-none"
+          />
+          <Button size="sm" disabled={busy || !to} onClick={claimNamed}>
+            {busy ? "MPC signing…" : "Claim"}
+          </Button>
+        </div>
+      )}
       {s?.eligible &&
+        !named &&
         (s.claimed ? (
           <span className="text-xs text-alive">Claimed</span>
         ) : (
@@ -117,6 +159,16 @@ function Transfer({ holder, balance }: { holder: string; balance: string }) {
       if (!amount) throw new Error("Enter an amount of BONES.");
       if (BigInt(amount) > BigInt(balance)) throw new Error("That's more than you hold.");
       const receiver = receiverAccountId(to).accountId;
+      if (signerKind(holder) === "near") {
+        // A NEAR account sends its own BONES: a plain NEP-141 ft_transfer (1 yoctoNEAR attached).
+        if (w.near !== holder) throw new Error(`Connect ${holder} with a NEAR wallet first.`);
+        setBusy("sign");
+        const tx = await w.nearWallet.call("ft_transfer", { receiver_id: receiver, amount }, { deposit: 1n, tgas: 30 });
+        setMsg({ ok: true, text: `Sent ${fmt(amount)} BONES.`, tx: tx || undefined });
+        setAmt("");
+        qc.invalidateQueries({ queryKey: ["bones", holder] });
+        return;
+      }
       const nonce = Number(await registry.nonce(holder));
       const message = bonesTransferMessage(receiver, amount, nonce);
       setBusy("sign");
