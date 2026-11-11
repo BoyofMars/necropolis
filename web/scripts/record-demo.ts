@@ -115,8 +115,8 @@ async function glide(page: Page, to: string | number, ms = 1600) {
 
   await scene(page, 3, "/grave/4", "$BONES: supply follows the dead.", "This $LAZARUS burial minted 110 BONES. When the coin rose, they burned, and its tithe paid everyone who held BONES at that moment.", "$BONES minted");
   await sleep(4000);
-  await glide(page, "Ossuary shares", 1800);
-  await sleep(3500);
+  await glide(page, 140, 1200); // keep "$BONES minted · burned" on screen
+  await sleep(4000);
 
   await scene(page, 4, "/grave/1", "The graves that stay dead get paid.", "This $COPIUM grave never rose. Other coins' risings paid it, signed by the ossuary's MPC key. Now its BONES do the same.", "Ossuary shares");
   await sleep(2500);
