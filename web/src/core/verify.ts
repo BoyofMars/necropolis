@@ -193,7 +193,7 @@ export async function runChecks(): Promise<Check[]> {
       const n = await accessKeyCount(CONTRACT_ID);
       return {
         status: n === 0 ? "pass" : "note",
-        detail: n === 0 ? "Locked: no access keys." : `Not yet: ${plural(n ?? 0, "access key")} can still deploy new code. See "Sudo by contract" in the README.`,
+        detail: n === 0 ? "Locked: no access keys." : `Not yet: ${plural(n ?? 0, "access key")} can still deploy new code. See "Security model" in the README.`,
         link: { label: CONTRACT_ID, href: nearAccountUrl(CONTRACT_ID) },
       };
     }),

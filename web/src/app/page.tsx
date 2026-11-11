@@ -250,8 +250,12 @@ export default function Landing() {
                 </p>
                 <p className="mt-3 text-bone-2">
                   $BONES is an NEP-141 token whose supply follows the dead. It&rsquo;s minted when you bury, one per dollar of
-                  ossuary weight, and burned when your own coin rises. It&rsquo;s transferable, so you can sell your claim on
-                  future resurrections without waiting for one. Anyone who buys in after a rising gets nothing from that rising.
+                  ossuary weight, into your grave&rsquo;s own keyless account, and burned when your own coin rises. Sell the
+                  grave and its BONES go with it; or exhume them and sell your claim on future resurrections on its own.
+                  Anyone who buys in after a rising gets nothing from that rising.{" "}
+                  <Link href="/bones" className="text-ember hover:underline">
+                    Rules and every mint and burn →
+                  </Link>
                 </p>
               </div>
             </Reveal>
