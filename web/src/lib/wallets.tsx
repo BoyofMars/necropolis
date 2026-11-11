@@ -9,6 +9,7 @@ import { Sheet } from "@/components/Sheet";
 import { Button, Mono, cx } from "@/components/ui";
 import { shortAddress, type ChainId } from "@/core/chains";
 import { NETWORK } from "@/core/near";
+import { BurnerWalletName, exportBurnerSecret } from "@/lib/burner";
 
 /**
  * NEAR implicit owner ids for connected wallets: a Solana key is a 64-hex
@@ -73,7 +74,25 @@ function ConnectBody({ focus, onDone }: { focus: "solana" | "evm" | "both"; onDo
   const { mutateAsync: connectEvm, isPending: evmPending } = useConnect();
   const { mutate: disconnectEvm } = useDisconnect();
   const [err, setErr] = useState<string | null>(null);
-  const solWallets = sol.wallets.filter((w) => w.readyState === WalletReadyState.Installed || w.readyState === WalletReadyState.Loadable);
+  const [copied, setCopied] = useState(false);
+  const burner = sol.wallets.find((w) => w.adapter.name === BurnerWalletName);
+  const solWallets = sol.wallets.filter(
+    (w) => w.adapter.name !== BurnerWalletName && (w.readyState === WalletReadyState.Installed || w.readyState === WalletReadyState.Loadable),
+  );
+  const usingBurner = sol.wallet?.adapter.name === BurnerWalletName && !!sol.publicKey;
+
+  const connectSol = async (name: string) => {
+    setErr(null);
+    try {
+      const w = sol.wallets.find((x) => x.adapter.name === name);
+      if (!w) throw new Error("Wallet not found.");
+      sol.select(w.adapter.name);
+      await w.adapter.connect();
+      onDone();
+    } catch (e) {
+      setErr((e as Error).message || "The wallet refused the connection.");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -81,18 +100,53 @@ function ConnectBody({ focus, onDone }: { focus: "solana" | "evm" | "both"; onDo
         Use the wallet you already hold the bag in. You never need a NEAR wallet: NEAR verifies your burial and your
         signatures behind the scenes.
       </p>
+      {burner && !sol.publicKey && (focus === "both" || focus === "solana") && (
+        <section className="rounded-[12px] border border-ember/40 bg-ember/5 p-4">
+          <div className="text-sm font-semibold text-bone">No wallet, or not on devnet?</div>
+          <p className="mt-1 text-xs text-bone-3">
+            Try everything with a throwaway Solana devnet wallet that lives in this browser: claim test bags, bury one, own the grave, sign as its
+            keeper. One click, no extension, no SOL needed. Testnet only.
+          </p>
+          <Button className="mt-3" size="sm" onClick={() => connectSol(BurnerWalletName)}>
+            Use a throwaway wallet
+          </Button>
+        </section>
+      )}
       {(focus === "both" || focus === "solana") && (
         <section>
           <div className="eyebrow mb-2">Solana {NETWORK === "testnet" && "· devnet"}</div>
           {sol.publicKey ? (
-            <div className="flex items-center justify-between rounded-[10px] border border-line bg-loam-2 px-4 py-3">
-              <div>
-                <div className="text-sm text-bone">{sol.wallet?.adapter.name}</div>
-                <Mono>{shortAddress(sol.publicKey.toBase58(), 6, 6)}</Mono>
+            <div className="rounded-[10px] border border-line bg-loam-2 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm text-bone">{sol.wallet?.adapter.name}</div>
+                  <Mono>{shortAddress(sol.publicKey.toBase58(), 6, 6)}</Mono>
+                </div>
+                <Button variant="quiet" size="sm" onClick={() => sol.disconnect()}>
+                  Disconnect
+                </Button>
               </div>
-              <Button variant="quiet" size="sm" onClick={() => sol.disconnect()}>
-                Disconnect
-              </Button>
+              {usingBurner && (
+                <p className="mt-2 text-xs text-bone-3">
+                  Kept in this browser only. Clearing site data loses it, and with it any grave it holds.{" "}
+                  <button
+                    className="text-ember underline-offset-2 hover:underline"
+                    onClick={async () => {
+                      const s = exportBurnerSecret();
+                      if (!s) return;
+                      try {
+                        await navigator.clipboard.writeText(s);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      } catch {
+                        /* clipboard blocked */
+                      }
+                    }}
+                  >
+                    {copied ? "Copied" : "Copy its key to import into Phantom"}
+                  </button>
+                </p>
+              )}
             </div>
           ) : solWallets.length === 0 ? (
             <div className="rounded-[10px] border border-dashed border-line-strong px-4 py-3 text-sm text-bone-3">
@@ -108,16 +162,7 @@ function ConnectBody({ focus, onDone }: { focus: "solana" | "evm" | "both"; onDo
                 <button
                   key={w.adapter.name}
                   className="flex h-12 items-center gap-3 rounded-[10px] border border-line bg-loam-2 px-4 text-left text-sm text-bone transition hover:border-bone-4 hover:bg-loam-3"
-                  onClick={async () => {
-                    setErr(null);
-                    try {
-                      sol.select(w.adapter.name);
-                      await w.adapter.connect();
-                      onDone();
-                    } catch (e) {
-                      setErr((e as Error).message || "The wallet refused the connection.");
-                    }
-                  }}
+                  onClick={() => connectSol(w.adapter.name)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={w.adapter.icon} alt="" width={22} height={22} className="rounded" />

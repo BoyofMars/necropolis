@@ -28,7 +28,7 @@ export function BonesPanel({ holder }: { holder: string }) {
     <Panel className="mt-10 overflow-hidden">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line p-6">
         <div>
-          <div className="eyebrow">$BONES · your share of the ossuary</div>
+          <div className="eyebrow">$BONES in your wallet</div>
           <div className="mt-2 font-display text-5xl text-bone tabular">{q.data ? fmt(q.data.balance) : "…"}</div>
           <p className="mt-1 text-sm text-bone-3">
             {q.data ? `${share >= 0.01 || share === 0 ? share.toFixed(2) : "<0.01"}% of ${fmt(q.data.supply)} BONES in circulation.` : " "} The BONES in your wallet:

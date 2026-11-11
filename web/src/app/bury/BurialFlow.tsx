@@ -1,7 +1,7 @@
 "use client";
 
 import { Transaction } from "@solana/web3.js";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -273,7 +273,7 @@ export function BurialFlow() {
                 ["MPC verification", "NEAR's MPC network reads that chain and attests to the deposit."],
                 ["Grave minted", "A NEP-171 grave is minted to your own wallet key."],
                 ["The rite", `If the token sustains a real recovery for ${describeWindow(TERMS)}, its plot rises.`],
-                ["Raising", "80% returns to you. 20% is shared by every other resting grave."],
+                ["Raising", "80% returns to you. 20% goes to $BONES holders, the graves still resting."],
               ].map(([t, d], i) => (
                 <li key={t} className="flex gap-3">
                   <span className="font-display text-bone-4">{i + 1}</span>
@@ -432,12 +432,12 @@ function ReviewStep({ prep, epitaph, setEpitaph, onBack, onSign }: { prep: Prepa
           [
             "Ossuary weight",
             prep.eligibility.kind === "ranked"
-              ? `${usd(prep.appraisal.weightUsd, { precise: true })}: your share of every other plot's rising scales with this.`
-              : "None (unmarked grave). It can still rise.",
+              ? `${usd(prep.appraisal.weightUsd, { precise: true })}: mints ${prep.appraisal.weightUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} $BONES into your grave, your share of every other coin's rising.`
+              : "None (unmarked grave): no $BONES. It can still rise.",
           ],
-          ["You receive", "A grave (NEP-171 NFT on NEAR) owned by this same wallet key. Transferable."],
+          ["You receive", "A grave (NEP-171 NFT on NEAR) owned by this same wallet key, with its own keyless NEAR account holding its $BONES. Sell the grave and they go with it."],
           ["It rises if", `the token sustains a real recovery for ${describeWindow(TERMS)} (liquidity, volume, traders, market cap, no wash trading).`],
-          ["When it rises", "80% of your tokens come back to you. 20% is shared by every other resting grave."],
+          ["When it rises", "80% of your tokens come back to you. 20% goes to the ossuary, split among $BONES holders; your grave's BONES burn."],
           ["Fees", prep.solanaTx ? "None. Necropolis pays the Solana network fee and the grave account rent." : "Base network gas, paid from your wallet."],
         ].map(([k, v]) => (
           <div key={k as string} className="grid gap-1 px-6 py-4 sm:grid-cols-[160px_1fr]">
@@ -530,8 +530,9 @@ function DoneStep({ prep, tx, graveId, nearTx }: { prep: Prepared; tx: string; g
 function TestBagFaucet() {
   const w = useWallets();
   const { open } = useConnectSheet();
+  const qc = useQueryClient();
   const [state, setState] = useState<"idle" | "busy" | "done" | string>("idle");
-  if (state === "done") return <span className="text-alive">Test bags sent. Refresh your bag list below.</span>;
+  if (state === "done") return <span className="text-alive">Test bags sent. They appear below in a few seconds.</span>;
   return (
     <button
       className="font-semibold text-ember underline-offset-2 hover:underline disabled:opacity-50"
@@ -542,6 +543,8 @@ function TestBagFaucet() {
         try {
           await post("/api/faucet", { sol: w.sol, evm: w.evm });
           setState("done");
+          // New token accounts take a moment to show up on devnet RPCs; refresh the bag list a few times.
+          for (const ms of [1_500, 4_000, 8_000, 15_000]) setTimeout(() => qc.invalidateQueries({ queryKey: ["bury-holdings"] }), ms);
         } catch (e) {
           setState((e as Error).message);
         }

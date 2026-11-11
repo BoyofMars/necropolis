@@ -8,6 +8,7 @@ import { registry } from "@/core/near";
 import { usePrefs } from "@/lib/prefs";
 import { ownerIds, useConnectSheet, useWallets } from "@/lib/wallets";
 import { BonesPanel } from "./BonesPanel";
+import { GravesBones } from "./GravesBones";
 
 export default function MyGraves() {
   const w = useWallets();
@@ -59,6 +60,7 @@ export default function MyGraves() {
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {q.data!.graves.map((g) => <GraveCard key={g.id} g={g} plot={q.data!.plots.get(g.plot_id)} />)}
           </div>
+          <GravesBones graves={q.data!.graves} />
         </>
       )}
 
