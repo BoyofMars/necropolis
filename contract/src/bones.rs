@@ -1,10 +1,15 @@
 //! $BONES: the ossuary as a fungible token (NEP-141, with NEP-145/148 views).
 //!
 //! Supply follows the cemetery:
-//!   * **minted** when a dead coin is buried with ossuary weight, to the burier
-//!     (1 BONES = $1 of weight, 6 decimals), so it grows as coins die;
-//!   * **burned** when that coin's plot rises, from the burier, as far as they
-//!     still hold it, so it shrinks as coins come back.
+//!   * **minted** when a dead coin is buried with ossuary weight, into the
+//!     grave's own account `g<id>.<contract>` (1 BONES = $1 of weight,
+//!     6 decimals), so it grows as coins die and belongs to whoever holds the NFT;
+//!   * **burned** when that coin's plot rises, from the grave's account, as far
+//!     as it still holds it, so it shrinks as coins come back.
+//!
+//! Every mint and burn is appended to an on-chain log (`get_bones_log`), and
+//! the rules are readable (`get_bones_rules`). None of them has a setter: the
+//! tithe, the upkeep, the death-score floor and the mint rate are fixed in code.
 //!
 //! Each rising's ossuary pool (the tithe less upkeep) is split among BONES
 //! holders by their balance **at the moment of the rising**, read from
@@ -19,7 +24,7 @@
 //! State lives under its own `bns:` storage keys, so adding it needed no
 //! migration. Risings before `bones_genesis` keep their per-grave shares.
 
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{U64, U128};
 use near_sdk::serde_json::{Value, json};
 use near_sdk::{AccountId, Gas, Promise, PromiseError, PromiseOrValue, env, ext_contract, near, require};
 
@@ -32,6 +37,10 @@ const GAS_FT_CALL_MIN: Gas = Gas::from_tgas(35);
 
 const SUPPLY_KEY: &[u8] = b"bns:sup";
 const GENESIS_KEY: &[u8] = b"bns:genesis";
+const LOG_LEN_KEY: &[u8] = b"bns:log#";
+fn log_key(i: u64) -> Vec<u8> {
+    format!("bns:log:{}", i).into_bytes()
+}
 fn balance_key(a: &AccountId) -> Vec<u8> {
     format!("bns:bal:{}", a).into_bytes()
 }
@@ -60,6 +69,42 @@ pub struct GraveBones {
     pub amount: U128,
     pub burned: U128,
     pub settled: bool,
+}
+
+/// One mint or burn, in order. `supply_after` lets anyone replay the supply.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BonesLogEntry {
+    pub i: U64,
+    pub at: U64,
+    /// mint · burn
+    pub kind: String,
+    pub account: AccountId,
+    pub amount: U128,
+    pub supply_after: U128,
+    pub grave_id: U64,
+    pub note: String,
+}
+
+/// The whole mechanic, as the contract runs it. Nothing here has a setter.
+#[near(serializers = [json])]
+pub struct BonesRules {
+    pub symbol: String,
+    pub decimals: u8,
+    /// BONES minted per $1 of ossuary weight
+    pub bones_per_usd_of_weight: U128,
+    /// share of every buried bag set aside for the ossuary when its coin rises
+    pub tithe_bps: u16,
+    /// share of that tithe kept for upkeep; the rest is the holders' pool
+    pub upkeep_bps: u16,
+    /// a grave earns weight (and so BONES) only above this death score
+    pub min_death_score: u8,
+    pub genesis_event: Option<u32>,
+    pub total_supply: U128,
+    pub mints_and_burns: U64,
+    pub rules: Vec<String>,
+    /// methods that can change any of the above: none
+    pub setters: Vec<String>,
 }
 
 #[near(serializers = [json])]
@@ -166,18 +211,40 @@ impl Contract {
         cps.iter().rev().find(|(k, _)| *k <= event_id).map(|(_, v)| *v).unwrap_or(0)
     }
 
-    pub(crate) fn bones_mint(&mut self, to: &AccountId, amount: u128, memo: &str) {
+    pub(crate) fn bones_log_len(&self) -> u64 {
+        raw_get(LOG_LEN_KEY).unwrap_or(0)
+    }
+
+    pub(crate) fn bones_log(&mut self, at: u64, kind: &str, account: &AccountId, amount: u128, grave_id: u64, note: String) {
+        let i = self.bones_log_len();
+        let e = BonesLogEntry {
+            i: U64(i),
+            at: U64(at),
+            kind: kind.into(),
+            account: account.clone(),
+            amount: U128(amount),
+            supply_after: U128(self.bones_supply()),
+            grave_id: U64(grave_id),
+            note,
+        };
+        raw_set(&log_key(i), &e);
+        raw_set(LOG_LEN_KEY, &(i + 1));
+    }
+
+    pub(crate) fn bones_mint(&mut self, to: &AccountId, amount: u128, grave_id: u64) {
         if amount == 0 {
             return;
         }
         let b = self.bones_balance(to);
         self.set_bones_balance(to, b + amount);
         raw_set(SUPPLY_KEY, &(self.bones_supply() + amount));
-        ft_event("ft_mint", json!({ "owner_id": to, "amount": U128(amount) }), Some(memo));
+        let memo = format!("grave {} buried", grave_id);
+        ft_event("ft_mint", json!({ "owner_id": to, "amount": U128(amount) }), Some(&memo));
+        self.bones_log(now_secs(), "mint", to, amount, grave_id, memo);
     }
 
     /// Burn up to `amount` from `from`; returns what was actually burned.
-    pub(crate) fn bones_burn(&mut self, from: &AccountId, amount: u128, memo: &str) -> u128 {
+    pub(crate) fn bones_burn(&mut self, from: &AccountId, amount: u128, grave_id: u64) -> u128 {
         let b = self.bones_balance(from);
         let x = b.min(amount);
         if x == 0 {
@@ -185,7 +252,9 @@ impl Contract {
         }
         self.set_bones_balance(from, b - x);
         raw_set(SUPPLY_KEY, &(self.bones_supply() - x));
-        ft_event("ft_burn", json!({ "owner_id": from, "amount": U128(x) }), Some(memo));
+        let memo = format!("grave {} rose", grave_id);
+        ft_event("ft_burn", json!({ "owner_id": from, "amount": U128(x) }), Some(&memo));
+        self.bones_log(now_secs(), "burn", from, x, grave_id, memo);
         x
     }
 
@@ -200,16 +269,19 @@ impl Contract {
         ft_event("ft_transfer", json!({ "old_owner_id": from, "new_owner_id": to, "amount": U128(amount) }), memo);
     }
 
-    /// From `inter`: a weighted burial mints its weight in BONES to the burier.
-    pub(crate) fn bones_on_burial(&mut self, grave_id: u64, owner: &AccountId, weight: u64) {
+    /// From `inter`: a weighted burial mints its weight in BONES into the
+    /// grave's own account, so its earnings belong to whoever holds the NFT.
+    pub(crate) fn bones_on_burial(&mut self, grave_id: u64, _owner: &AccountId, weight: u64) {
         if self.bones_genesis_event().is_none() || weight == 0 || env::storage_has_key(&grave_key(grave_id)) {
             return;
         }
-        self.bones_mint(owner, weight as u128, &format!("grave {}", grave_id));
+        let acct = accounts::grave_account(&env::current_account_id(), grave_id);
+        self.bones_mint(&acct, weight as u128, grave_id);
         raw_set(
             &grave_key(grave_id),
-            &GraveBones { minted_to: owner.clone(), amount: U128(weight as u128), burned: U128(0), settled: false },
+            &GraveBones { minted_to: acct.clone(), amount: U128(weight as u128), burned: U128(0), settled: false },
         );
+        self.grave_log(grave_id, "bones_minted", Some(acct), Some(weight as u128), Some("BONES".into()), None);
     }
 
     /// From `apply_observation`, just before a rising is recorded: burn the BONES
@@ -223,10 +295,11 @@ impl Contract {
             if gb.settled {
                 continue;
             }
-            let burned = self.bones_burn(&gb.minted_to, gb.amount.0, &format!("grave {} rose", id));
+            let burned = self.bones_burn(&gb.minted_to, gb.amount.0, id);
             gb.burned = U128(burned);
             gb.settled = true;
             raw_set(&grave_key(id), &gb);
+            self.grave_log(id, "bones_burned", Some(gb.minted_to), Some(burned), Some("BONES".into()), Some("its coin rose".into()));
         }
     }
 
@@ -325,15 +398,27 @@ impl Contract {
         require!(!env::storage_has_key(&ck), "already claimed");
         require!(self.tithe_collected(&e.plot_id), "raise the risen graves first: that's when the tithe reaches the ossuary");
         let share = self.bones_share(&e, &holder).unwrap_or_else(|r| fail(r));
-        let recipient = match recipient {
-            Some(r) => {
+        // A grave's account is run by whoever holds the grave NFT right now.
+        let grave = accounts::grave_id_of(&holder, &env::current_account_id()).map(|id| self.grave_or_panic(id));
+        let fields = [("event", event_id.to_string())];
+        let recipient = match (recipient, &grave) {
+            (Some(r), Some(g)) => {
                 let r = canonical_address(e.chain, &r).unwrap_or_else(|x| fail(x));
-                self.authorize_account(&holder, "claim_bones", &[("event", event_id.to_string()), ("recipient", r.clone())], auth);
+                self.authorize(g, "claim_bones", &[fields[0].clone(), ("recipient", r.clone())], auth);
                 r
             }
-            None => account_recipient(&holder, e.chain).unwrap_or_else(|| fail("a recipient on the risen token's chain is required")),
+            (Some(r), None) => {
+                let r = canonical_address(e.chain, &r).unwrap_or_else(|x| fail(x));
+                self.authorize_account(&holder, "claim_bones", &[fields[0].clone(), ("recipient", r.clone())], auth);
+                r
+            }
+            (None, Some(g)) => default_recipient(g, e.chain).unwrap_or_else(|| fail("the grave's holder must set a payout address on the risen token's chain")),
+            (None, None) => account_recipient(&holder, e.chain).unwrap_or_else(|| fail("a recipient on the risen token's chain is required")),
         };
         env::storage_write(&ck, &share.to_le_bytes());
+        if let Some(g) = &grave {
+            self.grave_log(g.id, "earned", Some(g.owner_id.clone()), Some(share), Some(e.symbol.clone()), Some(format!("rising #{} via its BONES, paid to {}", event_id, recipient)));
+        }
         events::emit("bones_claim", json!({ "event_id": event_id, "holder": holder, "amount": U128(share), "recipient": recipient }));
         self.sign_ossuary_payout(&e, recipient, share, format!("bones:{}:{}", event_id, holder), solana, evm)
     }
@@ -441,6 +526,36 @@ impl Contract {
 
     pub fn get_bones_genesis(&self) -> Option<u32> {
         self.bones_genesis_event()
+    }
+
+    pub fn get_bones_rules(&self) -> BonesRules {
+        let c = &self.config;
+        BonesRules {
+            symbol: "BONES".into(),
+            decimals: BONES_DECIMALS,
+            bones_per_usd_of_weight: U128(1),
+            tithe_bps: c.tithe_bps,
+            upkeep_bps: c.upkeep_bps,
+            min_death_score: c.min_death_score,
+            genesis_event: self.bones_genesis_event(),
+            total_supply: U128(self.bones_supply()),
+            mints_and_burns: U64(self.bones_log_len()),
+            rules: vec![
+                format!("Mint: a burial whose coin scores at least {} on the death score earns ossuary weight, capped per plot; 1 BONES is minted per $1 of weight, into the grave's own account.", c.min_death_score),
+                "Burn: when a coin rises, the BONES still inside its graves' accounts are burned. BONES already exhumed and sold stay out there.".into(),
+                format!("Pool: a rising sends {}% of every bag in its plot to the ossuary; {}% of that is upkeep, the rest is split among BONES holders.", c.tithe_bps / 100, c.upkeep_bps / 100),
+                "Record date: each holder's share is their balance at the moment of the rising over the supply at that moment. BONES bought afterwards don't share in it.".into(),
+                "Payout: a share can be claimed once the risen graves are raised (the tithe has reached the ossuary), and is signed out by the MPC network.".into(),
+            ],
+            setters: vec![],
+        }
+    }
+
+    /// Every mint and burn since this log began, oldest first.
+    pub fn get_bones_log(&self, from_index: Option<U64>, limit: Option<u64>) -> Vec<BonesLogEntry> {
+        let from = from_index.map(|x| x.0).unwrap_or(0);
+        let end = (from + limit.unwrap_or(50).min(100)).min(self.bones_log_len());
+        (from..end).filter_map(|i| raw_get(&log_key(i))).collect()
     }
 
     pub fn get_grave_bones(&self, grave_id: u64) -> Option<GraveBones> {

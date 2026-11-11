@@ -22,6 +22,7 @@ use near_sdk::{
     env, near, require,
 };
 
+pub mod accounts;
 pub mod auth;
 pub mod bones;
 pub mod events;
@@ -645,6 +646,7 @@ impl Contract {
                 .unwrap_or_else(|| fail("a recipient on the risen token's chain is required")),
         };
         self.claims.insert(claim_key.clone(), U128(share));
+        self.grave_log(grave_id, "earned", Some(g.owner_id.clone()), Some(share), Some(e.symbol.clone()), Some(format!("rising #{} (per-grave share), paid to {}", event_id, recipient)));
         let key = format!("share:{}", claim_key);
         self.sign_ossuary_payout(&e, recipient, share, key, solana, evm)
     }
@@ -688,14 +690,29 @@ impl Contract {
                 }
             }
         }
+        let mut amounts = vec![];
         if let Some(mut p) = self.payouts.get(&key).cloned() {
             p.signatures = sigs;
             p.signed_at = Some(U64(now_secs()));
+            amounts = p.amounts.clone();
             self.payouts.insert(key.clone(), p);
         }
         if let Some(id) = key.strip_prefix("raise:").and_then(|s| s.parse::<u32>().ok()) {
+            let first_raise = self.graves.get(id).is_some_and(|g| !g.raised);
             if let Some(g) = self.graves.get_mut(id) {
                 g.raised = true;
+            }
+            if first_raise {
+                let g = self.graves.get(id).cloned().unwrap();
+                let symbol = self.plot_symbol(&g.plot_id);
+                self.grave_log(
+                    id as u64,
+                    "raised",
+                    Some(g.owner_id.clone()),
+                    amounts.first().map(|a| a.0),
+                    symbol,
+                    Some(format!("tithe {} to the ossuary", amounts.get(1).map(|a| a.0).unwrap_or(0))),
+                );
             }
         }
         events::emit("payout_signed", json!({ "key": key }));
@@ -708,6 +725,7 @@ impl Contract {
         require!(epitaph.chars().count() <= MAX_EPITAPH, "epitaph is too long");
         let g = self.grave_or_panic(grave_id);
         self.authorize(&g, "set_epitaph", &[("epitaph", epitaph.clone())], auth);
+        self.grave_log(grave_id, "epitaph", Some(g.owner_id.clone()), None, None, Some(epitaph.clone()));
         self.graves.get_mut(grave_id as u32).unwrap().epitaph = Some(epitaph);
     }
 
@@ -1092,6 +1110,16 @@ impl Contract {
         pg.push(id);
         self.plot_graves.insert(pid.clone(), pg);
         events::nft_mint(&owner_id, id);
+        self.open_grave_account(id);
+        let grave_address = self.graves.get(id as u32).map(|g| g.grave_address.clone()).unwrap_or_default();
+        self.grave_log(
+            id,
+            "buried",
+            Some(owner_id.clone()),
+            Some(amount),
+            Some(a.appraisal.symbol.clone()),
+            Some(format!("{} into {}", chain.key(), grave_address)),
+        );
         self.bones_on_burial(id, &owner_id, weight);
         events::emit(
             "burial",
@@ -1320,6 +1348,7 @@ impl Contract {
         let mut b = self.owner_graves.get(to).cloned().unwrap_or_default();
         b.push(grave_id);
         self.owner_graves.insert(to.clone(), b);
+        self.grave_log(grave_id, "transferred", Some(to.clone()), None, None, Some(format!("from {}", from)));
         events::nft_transfer(from, to, grave_id, memo);
     }
 }
