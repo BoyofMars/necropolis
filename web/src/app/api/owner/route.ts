@@ -16,7 +16,7 @@ import { walletSignatureValid } from "@/server/walletsig";
 
 export const maxDuration = 30;
 
-type Action = "set_epitaph" | "transfer_grave" | "set_payout_address";
+type Action = "set_epitaph" | "transfer_grave" | "set_payout_address" | "exhume_bones";
 interface Input {
   action: Action;
   graveId: number;
@@ -30,6 +30,7 @@ const FIELD: Record<Action, [arg: string, msg: string]> = {
   set_epitaph: ["epitaph", "epitaph"],
   transfer_grave: ["receiver_id", "receiver"],
   set_payout_address: ["address", "address"],
+  exhume_bones: ["amount", "amount"],
 };
 
 export async function POST(req: Request) {
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
     if (!Number.isInteger(i.nonce) || i.nonce < 0) throw new BurialError("Bad nonce.", "BAD_NONCE");
     if (typeof i.value !== "string" || i.value.length === 0 || i.value.length > 600) throw new BurialError("Bad value.", "BAD_VALUE");
     if (typeof i.signature !== "string" || i.signature.length > 200) throw new BurialError("Bad signature.", "BAD_SIGNATURE");
+    if (i.action === "exhume_bones" && !/^[1-9]\d{0,30}$/.test(i.value)) throw new BurialError("Bad amount.", "BAD_VALUE");
 
     const g = await registry.grave(i.graveId);
     if (!g) throw new BurialError("Grave not found.", "NOT_FOUND", 404);
@@ -68,7 +70,9 @@ export async function POST(req: Request) {
             ? "Epitaphs are limited to 140 characters."
             : /cannot transfer to the current owner/.test(m)
               ? "That account already owns this grave."
-              : "NEAR rejected the action.";
+              : /not enough BONES/.test(m)
+                ? "The grave doesn't hold that many BONES."
+                : "NEAR rejected the action.";
       throw new BurialError(reason, "REJECTED", 400);
     }
   } catch (e) {

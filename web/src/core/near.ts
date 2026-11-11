@@ -191,6 +191,17 @@ export interface ShareJson {
 /** $BONES (NEP-141 on the registry contract): 6 decimals, 1 BONES = $1 of ossuary weight. */
 export const BONES_DECIMALS = 6;
 
+/** "12.5" BONES in base units, or null for anything that isn't a positive amount. */
+export function parseBones(v: string): string | null {
+  const m = v.trim().match(/^(\d+)(?:\.(\d{0,6}))?$/);
+  if (!m) return null;
+  const base = BigInt(m[1]) * 10n ** 6n + BigInt((m[2] ?? "").padEnd(6, "0") || "0");
+  return base > 0n ? base.toString() : null;
+}
+
+/** Base units as a readable BONES amount. */
+export const formatBones = (raw: string | bigint) => (Number(raw) / 10 ** BONES_DECIMALS).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
 export interface BonesShareJson {
   event_id: number;
   holder: string;
@@ -207,6 +218,43 @@ export interface GraveBonesJson {
   amount: U128;
   burned: U128;
   settled: boolean;
+}
+
+/** One line of a grave's on-chain history. */
+export interface GraveEventJson {
+  at: U64;
+  kind: "buried" | "bones_minted" | "earned" | "raised" | "bones_burned" | "bones_exhumed" | "transferred" | "epitaph" | string;
+  account: string | null;
+  amount: U128 | null;
+  symbol: string | null;
+  note: string | null;
+}
+
+/** $BONES as the contract runs it. `setters` is empty: nothing here can change. */
+export interface BonesRulesJson {
+  symbol: string;
+  decimals: number;
+  bones_per_usd_of_weight: U128;
+  tithe_bps: number;
+  upkeep_bps: number;
+  min_death_score: number;
+  genesis_event: number | null;
+  total_supply: U128;
+  mints_and_burns: U64;
+  rules: string[];
+  setters: string[];
+}
+
+/** One mint or burn, in order. */
+export interface BonesLogJson {
+  i: U64;
+  at: U64;
+  kind: "mint" | "burn";
+  account: string;
+  amount: U128;
+  supply_after: U128;
+  grave_id: U64;
+  note: string;
 }
 
 /** A plot's market, fixed by its first MPC-verified reading. */
@@ -259,7 +307,31 @@ export const registry = {
   candleTotal: () => nearView<U64>("get_candle_total"),
   poolBinding: (plotId: string) => nearView<PoolBindingJson | null>("get_pool_binding", { plot_id: plotId }),
   marketReading: (plotId: string) => nearView<MarketReadingJson | null>("get_market_reading", { plot_id: plotId }),
+  graveHistory: (graveId: number) => nearView<GraveEventJson[]>("get_grave_history", { grave_id: graveId }),
+  bonesRules: () => nearView<BonesRulesJson>("get_bones_rules"),
+  bonesLog: (from = 0, limit = 100) => nearView<BonesLogJson[]>("get_bones_log", { from_index: String(from), limit }),
 };
+
+/** The keyless NEAR account a grave NFT controls. Mirrors `accounts::grave_account`. */
+export const graveAccountId = (graveId: number) => `g${graveId}.${CONTRACT_ID}`;
+
+/** The grave behind a grave account, or null. Mirrors `accounts::grave_id_of`. */
+export function graveIdOfAccount(account: string): number | null {
+  const m = account.match(/^g(0|[1-9]\d{0,11})\.(.+)$/);
+  return m && m[2] === CONTRACT_ID ? Number(m[1]) : null;
+}
+
+/** How many access keys an account has. A grave account has none: nobody can sign for it. */
+export async function accessKeyCount(accountId: string): Promise<number | null> {
+  const res = await fetch(NEAR_RPC, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "keys", method: "query", params: { request_type: "view_access_key_list", finality: "final", account_id: accountId } }),
+    cache: "no-store",
+  });
+  const body = (await res.json()) as { result?: { keys?: unknown[] }; error?: unknown };
+  return body.result?.keys ? body.result.keys.length : null;
+}
 
 /** Same format as the contract's `grave_path`. */
 export function gravePath(chain: ContractChain, token: string, originOwner: string, nonce: number): string {
@@ -291,6 +363,14 @@ export function accountMessage(action: string, fields: [string, string][], nonce
 /** What a wallet signs to move $BONES. `amount` is in base units (6 decimals). */
 export function bonesTransferMessage(receiver: string, amount: string, nonce: number): string {
   return accountMessage("transfer_bones", [["receiver", receiver], ["amount", amount]], nonce);
+}
+
+/**
+ * What a holder signs to open a grave's crypt. Off-chain and time-boxed (no
+ * nonce is spent): the server checks it against the grave's owner *now*.
+ */
+export function cryptMessage(graveId: number, issued: number): string {
+  return `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: open_crypt\ngrave: ${graveId}\nissued: ${issued}`;
 }
 
 /** What a mourner signs to light a candle (one per wallet per grave, so nonce 0). */

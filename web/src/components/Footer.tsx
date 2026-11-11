@@ -142,12 +142,14 @@ export function Footer() {
                 ["Death methodology", "/how#methodology"],
                 ["Economics", "/how#economics"],
                 ["60-day simulation", "/how#simulation"],
+                ["$BONES rules and log", "/bones"],
               ],
             },
             {
               title: "Verify",
               links: [
-                ["Proof page", "/proof"],
+                ["Judge desk: verify every claim", "/verify"],
+                ["Re-derive an address", "/proof"],
                 [`${CONTRACT_ID} ↗`, nearAccountUrl(CONTRACT_ID)],
                 [`${MPC_SIGNER} ↗`, nearAccountUrl(MPC_SIGNER)],
                 ["Source on GitHub ↗", BRAND.repo],

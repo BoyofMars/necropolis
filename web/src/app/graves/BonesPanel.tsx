@@ -4,21 +4,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSignMessage } from "wagmi";
 import { Button, Panel, cx } from "@/components/ui";
-import { BONES_DECIMALS, bonesTransferMessage, nearTxUrl, registry, type EventJson } from "@/core/near";
+import { bonesTransferMessage, formatBones as fmt, nearTxUrl, parseBones as toBase, registry, type EventJson } from "@/core/near";
 import { post } from "@/lib/api";
 import { compact } from "@/lib/format";
 import { encodeSolanaSignature, receiverAccountId, signerKind } from "@/lib/ownerAction";
 import { useWallets } from "@/lib/wallets";
-
-const fmt = (raw: string | bigint) => (Number(raw) / 10 ** BONES_DECIMALS).toLocaleString(undefined, { maximumFractionDigits: 2 });
-
-/** Parse "12.5" BONES into base units, or null. */
-function toBase(v: string): string | null {
-  const m = v.trim().match(/^(\d+)(?:\.(\d{0,6}))?$/);
-  if (!m) return null;
-  const base = BigInt(m[1]) * 10n ** 6n + BigInt((m[2] ?? "").padEnd(6, "0") || "0");
-  return base > 0n ? base.toString() : null;
-}
 
 async function load(holder: string) {
   const [balance, supply, genesis, events] = await Promise.all([registry.bonesBalance(holder), registry.bonesSupply(), registry.bonesGenesis(), registry.events()]);
@@ -41,8 +31,8 @@ export function BonesPanel({ holder }: { holder: string }) {
           <div className="eyebrow">$BONES · your share of the ossuary</div>
           <div className="mt-2 font-display text-5xl text-bone tabular">{q.data ? fmt(q.data.balance) : "…"}</div>
           <p className="mt-1 text-sm text-bone-3">
-            {q.data ? `${share >= 0.01 || share === 0 ? share.toFixed(2) : "<0.01"}% of ${fmt(q.data.supply)} BONES in circulation.` : " "} Minted when you bury, burned
-            when your coin rises. Every other coin&rsquo;s rising pays holders.
+            {q.data ? `${share >= 0.01 || share === 0 ? share.toFixed(2) : "<0.01"}% of ${fmt(q.data.supply)} BONES in circulation.` : " "} The BONES in your wallet:
+            exhumed from your graves or sent to you. BONES still inside a grave are on that grave&rsquo;s page. Every coin&rsquo;s rising pays holders.
           </p>
         </div>
       </div>

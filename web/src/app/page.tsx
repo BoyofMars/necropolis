@@ -26,8 +26,8 @@ export default function Landing() {
             </h1>
             <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-bone-2">
               Send a dead memecoin to its own grave on Solana or Base, an address only NEAR can open. If the coin
-              ever <em className="not-italic text-bone">genuinely</em> comes back, you get 80% of it back. Burying also mints
-              you <span className="text-ember">$BONES</span>: a share of the 20% every other coin pays when it rises.
+              ever <em className="not-italic text-bone">genuinely</em> comes back, you get 80% of it back. Burying also mints{" "}
+              <span className="text-ember">$BONES</span> into your grave: a share of the 20% every other coin pays when it rises.
             </p>
             <ul className="mt-5 max-w-[34rem] space-y-2 text-sm leading-relaxed text-bone-3">
               <li className="flex gap-2.5">
@@ -250,8 +250,12 @@ export default function Landing() {
                 </p>
                 <p className="mt-3 text-bone-2">
                   $BONES is an NEP-141 token whose supply follows the dead. It&rsquo;s minted when you bury, one per dollar of
-                  ossuary weight, and burned when your own coin rises. It&rsquo;s transferable, so you can sell your claim on
-                  future resurrections without waiting for one. Anyone who buys in after a rising gets nothing from that rising.
+                  ossuary weight, into your grave&rsquo;s own keyless account, and burned when your own coin rises. Sell the
+                  grave and its BONES go with it; or exhume them and sell your claim on future resurrections on its own.
+                  Anyone who buys in after a rising gets nothing from that rising.{" "}
+                  <Link href="/bones" className="text-ember hover:underline">
+                    Rules and every mint and burn →
+                  </Link>
                 </p>
               </div>
             </Reveal>

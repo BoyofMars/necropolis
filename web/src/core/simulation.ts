@@ -4,6 +4,10 @@
  * pro rata by weight among graves resting in *other* plots at that moment.
  * Fake pumps are modelled as observation streaks that break before the window
  * completes (false dawns), which is what the rite does to wash trading.
+ *
+ * $BONES follows the same rules: each burial mints its weight (1 BONES per $1),
+ * a rising burns its own graves' BONES first, then its pool is split by BONES
+ * held at that moment, which is the same split as by resting weight.
  */
 
 export interface Scenario {
@@ -26,8 +30,24 @@ export const SCENARIOS: Scenario[] = [
 ];
 
 export interface SimResult {
-  days: { day: number; ownersUsd: number; ossuaryUsd: number; upkeepUsd: number; falseDawns: number; risen: number }[];
+  days: {
+    day: number;
+    ownersUsd: number;
+    ossuaryUsd: number;
+    upkeepUsd: number;
+    falseDawns: number;
+    risen: number;
+    /** BONES in circulation at the end of the day */
+    bonesSupply: number;
+    bonesMinted: number;
+    bonesBurned: number;
+  }[];
   totals: {
+    bonesMinted: number;
+    bonesBurned: number;
+    bonesSupply: number;
+    /** USD a single BONES held from day 0 to the end would have been paid */
+    earnedPerBones: number;
     graves: number;
     plots: number;
     buriedUsd: number;
@@ -64,10 +84,12 @@ export function simulate(s: Scenario, opts: { seed?: number; plots?: number; day
   const nPlots = opts.plots ?? 300;
   const lognorm = (mu: number, sigma: number) => Math.exp(mu + sigma * Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r()));
 
+  let bonesMinted = 0, bonesBurned = 0, earnedPerBones = 0;
   const bury = (plot: number, day: number) => {
     const value = Math.min(2_000, lognorm(Math.log(40), 1.1));
     graves.push({ plot, weight: value, valueUsd: value, buriedDay: day, received: 0 });
     plots[plot].graves.push(graves.length - 1);
+    bonesMinted += value; // 1 BONES per $1 of weight, into the grave's account
   };
   for (let i = 0; i < nPlots; i++) {
     plots.push({ id: i, risen: false, stirringUntil: null, fake: false, graves: [] });
@@ -117,12 +139,15 @@ export function simulate(s: Scenario, opts: { seed?: number; plots?: number; day
       const pool = tithe - upkeep;
       dayOwners += plotValue - tithe;
       for (const gi of p.graves) graves[gi].received += graves[gi].valueUsd * mult * 0.8;
+      // the risen plot's BONES burn before its pool is split
+      bonesBurned += p.graves.reduce((t, gi) => t + graves[gi].weight, 0);
       const resting = graves.filter((g) => !plots[g.plot].risen && g.buriedDay < day);
       const W = resting.reduce((t, g) => t + g.weight, 0);
       if (W > 0) {
         for (const g of resting) g.received += (pool * g.weight) / W;
         dayOssuary += pool;
         dayUpkeep += upkeep;
+        earnedPerBones += pool / W;
       } else dayUpkeep += tithe;
     }
     ownersUsd += dayOwners;
@@ -130,12 +155,16 @@ export function simulate(s: Scenario, opts: { seed?: number; plots?: number; day
     upkeepUsd += dayUpkeep;
     falseDawns += dayFalse;
     risings += dayRisen;
-    out.push({ day, ownersUsd, ossuaryUsd, upkeepUsd, falseDawns, risen: risings });
+    out.push({ day, ownersUsd, ossuaryUsd, upkeepUsd, falseDawns, risen: risings, bonesSupply: bonesMinted - bonesBurned, bonesMinted, bonesBurned });
   }
   const paid = graves.filter((g) => g.received > 0).map((g) => g.received).sort((a, b) => a - b);
   return {
     days: out,
     totals: {
+      bonesMinted,
+      bonesBurned,
+      bonesSupply: bonesMinted - bonesBurned,
+      earnedPerBones,
       graves: graves.length,
       plots: plots.length,
       buriedUsd: graves.reduce((t, g) => t + g.valueUsd, 0),

@@ -22,9 +22,10 @@ export function Mark({ size = 26, className }: { size?: number; className?: stri
 const NAV = [
   { href: "/cemetery", label: "Cemetery" },
   { href: "/discover", label: "Discover" },
-  { href: "/scan", label: "Scan a wallet" },
+  { href: "/scan", label: "Scan" },
   { href: "/how", label: "How it works" },
-  { href: "/proof", label: "Proof" },
+  { href: "/bones", label: "$BONES" },
+  { href: "/verify", label: "Verify" },
 ];
 
 export function Header() {
@@ -33,7 +34,7 @@ export function Header() {
   const { open } = useConnectSheet();
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-loam/85 pt-safe backdrop-blur-md">
-      <div className="mx-auto flex h-[var(--header-h)] max-w-[1200px] items-center gap-6 px-4 sm:px-6">
+      <div className="mx-auto flex h-[var(--header-h)] max-w-[1200px] items-center gap-4 px-4 sm:px-6 xl:gap-6">
         <Link href="/" className="flex items-center gap-2.5" aria-label={`${BRAND.name} home`}>
           <Mark />
           <span className="font-display text-[1.45rem] font-semibold tracking-tight text-bone">{BRAND.name}</span>
@@ -44,7 +45,7 @@ export function Header() {
               key={n.href}
               href={n.href}
               className={cx(
-                "rounded-full px-3 py-1.5 text-sm transition-colors",
+                "whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm transition-colors xl:px-3",
                 path.startsWith(n.href) ? "bg-loam-3 text-bone" : "text-bone-3 hover:text-bone",
               )}
             >
@@ -63,7 +64,7 @@ export function Header() {
           )}
           <Link
             href="/bury"
-            className="hidden h-9 items-center rounded-[10px] bg-ember px-4 text-sm font-semibold text-on-ember transition hover:bg-ember-bright md:inline-flex"
+            className="hidden h-9 items-center whitespace-nowrap rounded-[10px] bg-ember px-4 text-sm font-semibold text-on-ember transition hover:bg-ember-bright md:inline-flex"
           >
             Bury a bag
           </Link>
