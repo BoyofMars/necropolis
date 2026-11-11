@@ -251,7 +251,7 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 
 ## Run locally
 
-Requirements: Node ≥ 20, Rust ≥ 1.95 with `wasm32-unknown-unknown`, `cargo-near` 0.23, `near-cli-rs` (all have Windows/macOS/Linux installers).
+Requirements: Node ≥ 20.9 (Next.js 16's minimum; CI uses 22), Rust ≥ 1.95 with `wasm32-unknown-unknown`, `cargo-near` 0.23, `near-cli-rs` (all have Windows/macOS/Linux installers).
 
 ```bash
 # contract
