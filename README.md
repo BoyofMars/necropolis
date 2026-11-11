@@ -8,25 +8,25 @@
 
 | | |
 |---|---|
-| **Contract** | [`necropolis.testnet`](https://testnet.nearblocks.io/address/necropolis.testnet) (NEAR testnet) |
+| **Contract** | [`necropolis.testnet`](https://testnet.nearblocks.io/address/necropolis.testnet) (NEAR testnet). **Locked:** the account has no access keys ([DeleteKey tx](https://testnet.nearblocks.io/txns/BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB)), so nobody, us included, can change its code or its settings |
 | **MPC signer** | [`v1.signer-prod.testnet`](https://testnet.nearblocks.io/address/v1.signer-prod.testnet) (Chain Signatures + foreign-chain verification) |
 | **Origin chains** | Solana devnet, Base Sepolia (mainnet chains are coded but closed) |
 | **Live demo** | **https://necropolis-wine.vercel.app** (testnet) |
 | **Token** | **$BONES**, NEP-141 on `necropolis.testnet` (`ft_metadata`, `ft_balance_of`, `ft_transfer`, `ft_transfer_call`). Rules: `get_bones_rules`, log: `get_bones_log` |
 | **NFT** | Graves, NEP-171/177 on `necropolis.testnet`. Grave *N* controls `gN.necropolis.testnet`, a NEAR account with no access keys |
-| **Judge desk** | [`/verify`](https://necropolis-wine.vercel.app/verify) or `cd web && npm run verify`: every live claim below, re-checked from public RPCs (**10/10 hold**) |
+| **Judge desk** | [`/verify`](https://necropolis-wine.vercel.app/verify) or `cd web && npm run verify`: every live claim below, re-checked from public RPCs (**11/11 hold**, the lock included) |
 | **Tracks** | Memecoins With Mechanics · Open Innovation · NFTs That Do Something ([brief map](#brief-map)) |
 
 ## See it in 60 seconds
 
-0. **Don't trust any of this. Check it.** [`/verify`](https://necropolis-wine.vercel.app/verify) re-derives every vault address, finds every deposit on its own chain, confirms every grave account has no keys and that $BONES supply equals minted minus burned, straight from NEAR, Solana and Base RPCs. `npm run verify` does the same in a terminal. Below it are the attacks we sent to the contract and the transactions in which it refused them.
+0. **Don't trust any of this. Check it.** [`/verify`](https://necropolis-wine.vercel.app/verify) re-derives every vault address, finds every deposit on its own chain, confirms every grave account has no keys, that $BONES supply equals minted minus burned and that the contract itself has no keys left, straight from NEAR, Solana and Base RPCs. `npm run verify` does the same in a terminal. Below it are the attacks we sent to the contract and the transactions in which it refused them.
 1. **A rising judged by NEAR MPC, not by us.** Open [`/grave/3`](https://necropolis-wine.vercel.app/grave/3). $NGMI trades in a real Raydium pool on Solana devnet. NEAR's MPC network read the pool, both vaults and the mint in one request, and the contract computed liquidity and market cap itself. The plot rose on those numbers. The page shows the pool, the MPC payload hash and the transactions ([proof below](#a-rising-judged-on-numbers-near-mpc-read-from-solana)).
 2. **$BONES pays the graves that stay dead.** [`/grave/1`](https://necropolis-wine.vercel.app/grave/1) never rose, and has been paid by three other coins' risings: twice per grave, then through its owner's $BONES. Since $BONES, every rising pays BONES holders. When $LAZARUS rose, its burier's BONES burned and the tithe went 56.56 : 40 to two holders, one of whom only received BONES by transfer ([proof below](#bones-pays-whoever-held-it-at-the-rising)).
 3. **Who died in your wallet?** [`/scan`](https://necropolis-wine.vercel.app/scan): paste any Solana or Base wallet and every token gets a death score with its evidence. Then share the obituary.
 4. **A grave sold in the middle of a payout.** Grave X (below) held BONES when $PHOENIX rose, then was sold before anyone claimed. The claim paid the buyer. The seller's attempts to exhume, redirect, claim or re-sell were refused by the contract, and the seller's wallet can no longer open the grave's [crypt](#graves-are-accounts). See [the run](#a-grave-sold-in-the-middle-of-a-payout).
 5. **$BONES, in the open.** [`/bones`](https://necropolis-wine.vercel.app/bones): the rules as the contract states them, the parameters (and the empty list of methods that can change them), and every mint and burn.
 6. **Try it yourself, no wallet.** On the live app, **Connect → Use a throwaway wallet**, then [`/bury`](https://necropolis-wine.vercel.app/bury): claim test bags, bury one, and your grave (with its own account and BONES) is minted in about 20 seconds. Already on NEAR? Connect a NEAR wallet to hold graves and BONES in your account.
-7. **Watch it:** a 90-second captioned walkthrough of production, recorded by [`web/scripts/record-demo.ts`](web/scripts/record-demo.ts).
+7. **Replay the walkthrough:** `cd web && npx tsx scripts/record-demo.ts` drives production with Playwright and records a captioned ten-scene video; every scene reads live chain state.
 
 ## $BONES: a token whose supply follows the dead
 
@@ -36,7 +36,7 @@
 | **Burn** | When a coin's plot rises, the BONES still inside its graves are burned. BONES already exhumed and sold stay out there. Supply shrinks as coins come back. |
 | **Pay** | Each rising's ossuary pool (the 20% tithe, less a tenth of it for upkeep) is split among BONES holders by their balance **at the moment of the rising**, read from on-chain checkpoints. BONES bought after a rising gets nothing from it, so burying junk after the fact can't skim a payout. Paid in the risen coin, signed out of the ossuary by NEAR MPC. |
 | **Move** | The holder can exhume BONES from the grave to their wallet (signed). From there they're an ordinary NEP-141: `ft_transfer` / `ft_transfer_call` (DEX-compatible) for NEAR accounts; Solana and EVM holders sign a message and the relayer pays gas. |
-| **Read** | `get_bones_rules()` returns every parameter and `setters: []`: **no method can change the mint rate, tithe, upkeep or death-score floor.** `get_bones_log()` lists every mint and burn with the supply after it, also emitted as NEP-141 `ft_mint` / `ft_burn` events. Both on [`/bones`](https://necropolis-wine.vercel.app/bones). |
+| **Read** | `get_bones_rules()` returns every parameter and `setters: []`: **no method can change the mint rate, tithe, upkeep or death-score floor**, and with the contract locked no new code can add one. `get_bones_log()` lists every mint and burn with the supply after it, also emitted as NEP-141 `ft_mint` / `ft_burn` events. Both on [`/bones`](https://necropolis-wine.vercel.app/bones). |
 | **Code** | [`contract/src/bones.rs`](contract/src/bones.rs). State lives under its own storage keys, so the upgrade needed no migration. Risings before genesis keep their per-grave shares. |
 
 ## Graves are accounts
@@ -195,8 +195,10 @@ The first passing observation makes the plot **stirring**. It **rises** after 14
 | Coroner (Sexton) | Appraise burials (value, weight); report vital signs. On plots bound to a pool, only volume and trader counts | Move tokens; fabricate deposits; decide resurrection (the contract does); report liquidity, price or market cap for a pool-bound plot (NEAR MPC reads them) |
 | Relayer (Sexton) | Pay fees; broadcast transactions anyone could broadcast; relay owner-signed actions (it checks the signature first, so forgeries cost it nothing) | Redirect payouts: destination accounts are derived on-chain. Forge, alter or replay an owner action: the contract verifies the signature and nonce itself |
 | Grave owner | Transfer the grave; set epitaph or payout address; exhume BONES from the grave's account, all via wallet signature (nonce-protected) | Withdraw before the plot rises; act for the grave after selling it |
-| Contract owner (method calls) | Add/remove coroners; set NFT base URI; start $BONES once; open accounts for graves dug before the upgrade | Change a plot's frozen terms or the $BONES rules (no setter exists); touch buried tokens or a grave's BONES |
-| Contract account's access key | Deploy new code (it's a testnet deployment under active development) | Nothing else. **Until that key is deleted, the code can be replaced**; `/verify` reports the key count live |
+| Contract owner (method calls) | **Nothing, since the lock.** The owner is `necropolis.testnet` itself, which has no keys. Before the lock it could add or remove coroners, set the NFT base URI and the market allowlists, claim upkeep, start $BONES (once, done) and open accounts for graves dug before the upgrade (done) | Change a plot's frozen terms or the $BONES rules (no setter exists); touch buried tokens or a grave's BONES |
+| Contract account's access keys | **None.** The last one was deleted on 2026-11-11 by [`web/scripts/lock-contract.ts`](web/scripts/lock-contract.ts) ([DeleteKey tx](https://testnet.nearblocks.io/txns/BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB)) | Deploy new code, add a key or call an owner method, ever. `/verify` checks the key count live |
+
+**What the lock costs, stated plainly.** No bug found from now on can be fixed in this deployment; a mainnet launch would be a fresh, audited deployment. The coroner list is frozen at `necropolis-sexton.testnet`: it can't be removed or replaced, so the coroner limits above are permanent. Upkeep (10% of each tithe) can no longer be claimed by anyone and stays in the ossuary. Before locking we checked that the deployed `code_hash` (`9odGmEdcG6PJBoeqnoyGLyxwQNokd4TPQiKZaqUBQrnU`) is the hash of our build of `contract/` at its last commit. That build is `non-reproducible-wasm`, so a build on another machine may hash differently.
 
 **Main trust assumption: the coroner, and how much of it NEAR MPC removes.** A dishonest coroner can stall a rising or mis-appraise weights. It can't steal buried tokens or mint graves without real deposits.
 
@@ -236,7 +238,7 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 
 ## Demo path (do X, see Y)
 
-0. **Judge desk:** `cd web && npm install --legacy-peer-deps && npm run verify` → `10/10 claims hold` (plus a note on the contract key), from public RPCs only. Same checks at `/verify`.
+0. **Judge desk:** `cd web && npm install --legacy-peer-deps && npm run verify` → `11/11 claims hold`, from public RPCs only. Same checks at `/verify`.
 1. **Contract tests:** `cd contract && cargo test --lib` → 58 tests pass, including `a_sale_in_the_middle_of_a_payout_pays_the_buyer`, `a_claim_made_before_the_sale_stays_with_the_seller` and `bones_rules_are_readable_and_every_mint_and_burn_is_logged`. Three of them reproduce live MPC attestations byte for byte: `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector` and `matches_live_mpc_four_account_market_vector` (a Raydium pool, its vaults and mint read in one request). `mpc_read_market_replaces_reported_numbers_and_binds_the_pool` runs the live pool accounts through the contract's market path.
 2. **Engine tests:** `cd web && npm test` → 36 tests pass, including NEP-413 sign-in verified against near-api-js's own signer: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation and $BONES supply, owner and $BONES messages that match the contract byte for byte, the same four-account MPC vector, and obituary wording.
 3. **Read the registry:** `near contract call-function as-read-only necropolis.testnet get_ossuary json-args '{"chain":"sol-devnet"}' network-config testnet now` → `3dowrH8pUtmCzKR8DwsK9rHq2gBGqiV8FTzK2tZA45Mx`.
@@ -305,7 +307,7 @@ Every requirement in the three track briefs, and where to check it.
 | The brief asks for | Where it is | Status |
 |---|---|---|
 | An NEP-141 token with the mechanic in the contract | $BONES in [`bones.rs`](contract/src/bones.rs): minted per dollar of dead weight, burned when its coin rises, paid by balance at every rising | Met |
-| Parameters readable, no admin key that can change them | `get_bones_rules()` returns every parameter and `setters: []`; no method changes them. The contract account still has an access key that could deploy new code ([Security model](#security-model)); `/verify` shows it live | Partly, until that key is deleted |
+| Parameters readable, no admin key that can change them | `get_bones_rules()` returns every parameter and `setters: []`; no method changes them. The contract account has no access keys, so no one can deploy code that would ([Security model](#security-model)) | Met · `/verify` checks the contract has 0 keys |
 | Sybil limits documented | [Sybil limits & failure cases](#sybil-limits--failure-cases) | Met |
 | A page with a log of every mint and burn | [`/bones`](https://necropolis-wine.vercel.app/bones), from `get_bones_log()`; `/verify` checks supply = minted − burned | Met |
 | A 60-day simulation | [`/how#simulation`](https://necropolis-wine.vercel.app/how#simulation): four futures, with $BONES supply and payout per BONES | Met |
@@ -326,9 +328,10 @@ Every requirement in the three track briefs, and where to check it.
 
 ## Disclosure
 
-- Built during the hackathon window (November 2026). The `pre-hackathon` tag marks the empty scaffold (`create-next-app` output); everything after it is new.
+- Built during the hackathon window (November 2026). The `pre-hackathon` tag marks the empty scaffold (`create-next-app` output); everything after it is new: [the full diff](https://github.com/BoyofMars/necropolis/compare/pre-hackathon...main).
+- **Other submission:** the author also entered **[Sudo by Contract](https://github.com/BoyofMars/sudo-by-contract)**, an independent project: short-lived, policy-bound SSH access for AI agents, with NEAR's MPC network as an SSH certificate authority that has no private key. The two projects share no code.
 - **AI-generated code:** this project was built with Claude Code (Anthropic) acting as the engineer under the owner's direction. Research, architecture, contract, app and docs were produced in that session.
-- **Libraries:** near-sdk-rs, curve25519-dalek, bs58, hex; Next.js, React, Tailwind, motion, @solana/web3.js, @solana/spl-token, wallet-adapter, wagmi/viem, @noble/curves/hashes, near-api-js, TanStack Query, zod, vitest.
+- **Libraries:** near-sdk-rs, curve25519-dalek, bs58, hex; Next.js, React, Tailwind, motion, @solana/web3.js, @solana/spl-token, Solana wallet-adapter, wagmi/viem, NEAR wallet selector (core, modal UI, HOT, Intear, MyNearWallet), near-api-js, @near-js/transactions, @noble/curves/hashes, Raydium SDK v2 (test pool script), TanStack Query, zod, bn.js; vitest, Playwright, solc (test ERC-20), tsx.
 - **Data providers:** DexScreener, GeckoTerminal, Jupiter, Blockscout, RugCheck, honeypot.is (public endpoints).
 
 ## Proof it works: a real end-to-end run (Solana devnet + NEAR testnet)
@@ -431,7 +434,8 @@ Grave 5's on-chain history now reads: buried → BONES minted → changed hands 
 - ✅ **NEAR wallets, optional:** HOT, Intear or MyNearWallet. A named NEAR account can hold graves and $BONES, act as a grave's keeper with its own transactions, send BONES with `ft_transfer`, claim shares to an address it names, light candles, and open its crypt with a NEP-413 signature. Burying still happens from the Solana or Base wallet that holds the bag.
 - ✅ **My graves** shows the BONES inside every grave you hold and what each is owed, with **Claim all**.
 - ✅ **Graves are accounts:** every grave controls a keyless `gN.necropolis.testnet`; $BONES mint into it; claims for it pay the current holder; holder-only crypt; per-grave history. A sale in the middle of a payout ran live with every seller attack refused (above).
-- ✅ **Judge desk:** `/verify` and `npm run verify`, 10/10 live claims re-checked from public RPCs, plus the refused attacks with their transactions.
+- ✅ **Judge desk:** `/verify` and `npm run verify`, 11/11 live claims re-checked from public RPCs, plus the refused attacks with their transactions.
+- ✅ **Locked:** `necropolis.testnet` has no access keys, so its code, coroners and settings can't change ([DeleteKey tx](https://testnet.nearblocks.io/txns/BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB), [`lock-contract.ts`](web/scripts/lock-contract.ts)).
 - ✅ **$BONES in the open:** `/bones` with `get_bones_rules` (no setters) and `get_bones_log` (every mint and burn).
 - ✅ Tests: 58 contract (incl. three live MPC vectors, the $BONES economics and the sale-mid-payout cases), 36 unit, 9 Playwright smoke (desktop + mobile); `npm run lint` clean.
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
