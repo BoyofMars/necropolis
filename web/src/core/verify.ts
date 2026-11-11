@@ -21,6 +21,16 @@ import {
   type ContractChain,
   type GraveJson,
 } from "./near";
+import refused from "../../testnet-refused.json";
+
+/** Old testnet transactions fall off regular nodes after a few days; judging is later. */
+const NEAR_ARCHIVAL_RPC =
+  process.env.NEXT_PUBLIC_NEAR_ARCHIVAL_RPC ?? (NETWORK === "mainnet" ? "https://archival-rpc.mainnet.fastnear.com" : "https://archival-rpc.testnet.fastnear.com");
+
+interface Refusals {
+  sender?: string;
+  refusals: { attack: string; expected: string; tx: string }[];
+}
 
 export type CheckStatus = "pass" | "fail" | "note";
 
@@ -189,6 +199,31 @@ export async function runChecks(): Promise<Check[]> {
         detail: raised.length === 0 ? "No grave has been raised yet." : `${plural(raised.length, "raised grave")}: ${bad.length === 0 ? "every payout signed" : `unsigned: ${bad.map((g) => g.id).join(", ")}`}.`,
       };
     }),
+    check(
+      "attacks",
+      "Every attack listed on this page was refused by the contract itself",
+      "NEAR tx(hash, sender) on an archival node: the receipt failed with the stated panic",
+      async () => {
+        const r = refused as Refusals;
+        if (r.refusals.length === 0 || !r.sender) return { status: "note", detail: "No attacks recorded yet." };
+        const rows = await Promise.all(
+          r.refusals.map(async (a) => {
+            const out = await jsonRpc<{ receipts_outcome: { outcome: { status: { Failure?: unknown } } }[] }>(NEAR_ARCHIVAL_RPC, "tx", {
+              tx_hash: a.tx,
+              sender_account_id: r.sender,
+              wait_until: "NONE",
+            });
+            const failures = out.receipts_outcome.map((o) => JSON.stringify(o.outcome.status.Failure ?? "")).join(" ");
+            return { a, ok: failures.includes(a.expected.slice(0, 40)) };
+          }),
+        );
+        const bad = rows.filter((x) => !x.ok);
+        return {
+          status: bad.length === 0 ? "pass" : "fail",
+          detail: bad.length === 0 ? `${plural(rows.length, "attack")}, each a failed transaction with the contract's own error.` : `Not confirmed: ${bad.map((x) => x.a.attack).join("; ")}.`,
+        };
+      },
+    ),
     check("lock", "The contract's code can no longer be changed", `view_access_key_list(${CONTRACT_ID})`, async () => {
       const n = await accessKeyCount(CONTRACT_ID);
       return {

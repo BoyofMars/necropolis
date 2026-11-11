@@ -305,6 +305,7 @@ async function seance(graveId: number): Promise<number> {
     JSON.stringify(
       {
         about: "Attacks sent straight to the contract on testnet by scripts/e2e-accounts.ts, skipping our server's own checks. Each transaction failed with the contract's error.",
+        sender: process.env.SEXTON_NEAR_ACCOUNT,
         graves: { sold: X, risen: Y, event: E },
         refusals: state.refusals,
       },

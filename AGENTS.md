@@ -12,7 +12,7 @@ cd contract && cargo test --lib
 cd ../web && npm install --legacy-peer-deps && npm test
 
 # 3. Live state: re-checks every claim the README makes about testnet, from public RPCs only
-npm run verify          # expect "9/9 claims hold" and one note (the contract's access key)
+npm run verify          # expect "10/10 claims hold" and one note (the contract's access key)
 ```
 
 Expected test names worth looking at:

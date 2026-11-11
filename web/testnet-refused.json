@@ -1,4 +1,51 @@
 {
-  "about": "Attacks sent straight to necropolis.testnet by scripts/e2e-accounts.ts, bypassing our server's own checks. Each tx failed with the contract's error.",
-  "refusals": []
+  "about": "Attacks sent straight to the contract on testnet by scripts/e2e-accounts.ts, skipping our server's own checks. Each transaction failed with the contract's error.",
+  "sender": "necropolis-sexton.testnet",
+  "graves": {
+    "sold": 5,
+    "risen": 6,
+    "event": 4
+  },
+  "refusals": [
+    {
+      "attack": "A relayer moves a grave's BONES with no signature from its holder",
+      "expected": "a wallet signature from the grave's owner is required",
+      "tx": "4X2pkWcEChKQXvw66wDtWqDPqyx1UdbsyiuSonL1Nnsy"
+    },
+    {
+      "attack": "Claim a share before the risen coin's tithe has reached the ossuary",
+      "expected": "raise the risen graves first: that's when the tithe reaches the ossuary",
+      "tx": "8HUiL3mmTLivZHfj3bAAVzxXCtffoz7SzZcrFuf9SZGP"
+    },
+    {
+      "attack": "After the sale, the seller exhumes the grave's BONES",
+      "expected": "invalid owner signature",
+      "tx": "3v5KhC6GY1umiuHmGc9GYVB1Yt33RTeA2btapXYzC2UE"
+    },
+    {
+      "attack": "After the sale, the seller points the grave's payouts at their own wallet",
+      "expected": "invalid owner signature",
+      "tx": "DP9hDu2yD8Db5e8ArBem6QD1ed19rCQ7MpybdwbEtPC7"
+    },
+    {
+      "attack": "After the sale, the seller claims the grave's share to their own wallet",
+      "expected": "invalid owner signature",
+      "tx": "8pAAf3MdK9RuaEeTEtBCWvQpuSwXypDgZkwGrdTcdFUM"
+    },
+    {
+      "attack": "After the sale, the seller sells the grave again",
+      "expected": "invalid owner signature",
+      "tx": "9MyMJuG8Stcdi6FwwjHRr4Ldw7TUeyqmGbKfdwUKJnQR"
+    },
+    {
+      "attack": "Claim the same share twice",
+      "expected": "already claimed",
+      "tx": "BV42wcV9uui3cqRGZigKL9La6Rquk38TeywhC2Vucq32"
+    },
+    {
+      "attack": "Replay the buyer's signed exhume",
+      "expected": "stale or reused signature nonce",
+      "tx": "2LggALyEdrT9eAzM2jak1WAQKRcLafLCVrFMaVTPvwzx"
+    }
+  ]
 }

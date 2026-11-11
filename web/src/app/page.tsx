@@ -26,8 +26,8 @@ export default function Landing() {
             </h1>
             <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-bone-2">
               Send a dead memecoin to its own grave on Solana or Base, an address only NEAR can open. If the coin
-              ever <em className="not-italic text-bone">genuinely</em> comes back, you get 80% of it back. Burying also mints
-              you <span className="text-ember">$BONES</span>: a share of the 20% every other coin pays when it rises.
+              ever <em className="not-italic text-bone">genuinely</em> comes back, you get 80% of it back. Burying also mints{" "}
+              <span className="text-ember">$BONES</span> into your grave: a share of the 20% every other coin pays when it rises.
             </p>
             <ul className="mt-5 max-w-[34rem] space-y-2 text-sm leading-relaxed text-bone-3">
               <li className="flex gap-2.5">
