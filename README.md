@@ -18,7 +18,7 @@
 ## See it in 60 seconds
 
 1. **A rising judged by NEAR MPC, not by us.** Open [`/grave/3`](https://necropolis-wine.vercel.app/grave/3). $NGMI trades in a real Raydium pool on Solana devnet. NEAR's MPC network read the pool, both vaults and the mint in one request, and the contract computed liquidity and market cap itself. The plot rose on those numbers. The page shows the pool, the MPC payload hash and the transactions ([proof below](#a-rising-judged-on-numbers-near-mpc-read-from-solana)).
-2. **$BONES pays the graves that stay dead.** [`/grave/1`](https://necropolis-wine.vercel.app/grave/1) never rose, and was paid from two other coins' risings. Since $BONES, every rising pays BONES holders. When $LAZARUS rose, its burier's BONES burned and the tithe went 56.56 : 40 to two holders, one of whom only received BONES by transfer ([proof below](#bones-pays-whoever-held-it-at-the-rising)).
+2. **$BONES pays the graves that stay dead.** [`/grave/1`](https://necropolis-wine.vercel.app/grave/1) never rose, and has been paid by three other coins' risings: twice per grave, then through its owner's $BONES. Since $BONES, every rising pays BONES holders. When $LAZARUS rose, its burier's BONES burned and the tithe went 56.56 : 40 to two holders, one of whom only received BONES by transfer ([proof below](#bones-pays-whoever-held-it-at-the-rising)).
 3. **Who died in your wallet?** [`/scan`](https://necropolis-wine.vercel.app/scan): paste any Solana or Base wallet and every token gets a death score with its evidence. Then share the obituary.
 4. **Don't trust us. Check.** [`/proof`](https://necropolis-wine.vercel.app/proof) re-derives every vault address in your browser and matches it against NEAR's MPC network, live.
 5. **Watch it:** a 90-second captioned walkthrough of production, recorded by [`web/scripts/record-demo.ts`](web/scripts/record-demo.ts).
@@ -29,7 +29,7 @@
 |---|---|
 | **Mint** | When you bury a dead coin with ossuary weight: 1 BONES per $1 of weight, to your wallet. Supply grows as coins die. |
 | **Burn** | When your own coin's plot rises, the BONES you still hold for it are burned. Supply shrinks as coins come back. |
-| **Pay** | Each rising's ossuary pool (the 20% tithe, less 2% upkeep) is split among BONES holders by their balance **at the moment of the rising**, read from on-chain checkpoints. BONES bought after a rising gets nothing from it, so burying junk after the fact can't skim a payout. |
+| **Pay** | Each rising's ossuary pool (the 20% tithe, less a tenth of it for upkeep) is split among BONES holders by their balance **at the moment of the rising**, read from on-chain checkpoints. BONES bought after a rising gets nothing from it, so burying junk after the fact can't skim a payout. |
 | **Move** | Transferable: sell your claim on future resurrections without waiting for one. NEAR accounts use `ft_transfer` / `ft_transfer_call` (DEX-compatible). Solana and EVM holders sign a message and the relayer pays gas. |
 | **Code** | [`contract/src/bones.rs`](contract/src/bones.rs). State lives under its own storage keys, so the upgrade needed no migration. Risings before genesis keep their per-grave shares. |
 
