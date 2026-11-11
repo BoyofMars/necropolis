@@ -12,7 +12,7 @@ cd contract && cargo test --lib
 cd ../web && npm install --legacy-peer-deps && npm test
 
 # 3. Live state: re-checks every claim the README makes about testnet, from public RPCs only
-npm run verify          # expect "10/10 claims hold" and one note (the contract's access key)
+npm run verify          # expect "11/11 claims hold" (the last one: the contract has no access keys)
 ```
 
 Expected test names worth looking at:
@@ -32,11 +32,11 @@ Expected test names worth looking at:
 | Markets read by NEAR MPC, not reported | `contract/src/market.rs` | `npm run verify` → markets |
 | Payouts built in-contract and signed by MPC | `contract/src/solana.rs`, `contract/src/evm.rs` | `npm run verify` → raises |
 | Attacks the contract refuses | `web/scripts/e2e-accounts.ts` | `web/testnet-refused.json` (tx hashes, also on `/verify`) |
+| Nobody can change the contract: no access keys, and its owner is itself | `web/scripts/lock-contract.ts` | `npm run verify` → lock; DeleteKey tx `BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB` |
 
 ## Not verifiable offline
 
-- End-to-end burials need the relayer's keys (`web/.env.local`, not in the repo). The README's proof tables link every transaction instead.
-- The contract account still has one access key (stated in the README's Security model and reported by `npm run verify`).
+- End-to-end burials from a clone need the relayer's keys (`web/.env.local`, not in the repo). The README's proof tables link every transaction instead, and the live app runs a burial for anyone: Connect → Use a throwaway wallet → `/bury`.
 
 ## Live
 
