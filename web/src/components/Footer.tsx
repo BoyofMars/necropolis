@@ -142,6 +142,7 @@ export function Footer() {
                 ["Death methodology", "/how#methodology"],
                 ["Economics", "/how#economics"],
                 ["60-day simulation", "/how#simulation"],
+                ["$BONES rules and log", "/bones"],
               ],
             },
             {

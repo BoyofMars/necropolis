@@ -2,10 +2,10 @@ import bs58 from "bs58";
 import { CHAINS, type ChainId } from "@/core/chains";
 import { actionMessage, registry } from "@/core/near";
 
-export type OwnerAction = "set_epitaph" | "transfer_grave" | "set_payout_address";
+export type OwnerAction = "set_epitaph" | "transfer_grave" | "set_payout_address" | "exhume_bones";
 
 /** Field name in the signed message, exactly as the contract writes it. */
-const MSG_FIELD: Record<OwnerAction, string> = { set_epitaph: "epitaph", transfer_grave: "receiver", set_payout_address: "address" };
+const MSG_FIELD: Record<OwnerAction, string> = { set_epitaph: "epitaph", transfer_grave: "receiver", set_payout_address: "address", exhume_bones: "amount" };
 
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 

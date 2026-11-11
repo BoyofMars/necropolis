@@ -25,6 +25,22 @@ describe("60-day simulation", () => {
     expect(attack.totals.falseDawns).toBeGreaterThan(20);
   });
 
+  it("$BONES supply grows with every burial and burns only on a rising", () => {
+    const dead = simulate(by("graveyard"));
+    expect(dead.totals.bonesBurned).toBe(0);
+    expect(dead.totals.bonesSupply).toBeCloseTo(dead.totals.buriedUsd, 6); // 1 BONES per $1
+    expect(dead.totals.earnedPerBones).toBe(0);
+    const summer = simulate(by("summer"), { seed: 7 });
+    expect(summer.totals.bonesBurned).toBeGreaterThan(0);
+    expect(summer.totals.bonesSupply).toBeCloseTo(summer.totals.bonesMinted - summer.totals.bonesBurned, 6);
+    // supply only drops on days with a rising
+    for (let i = 1; i < summer.days.length; i++) {
+      const [a, b] = [summer.days[i - 1], summer.days[i]];
+      if (b.bonesBurned > a.bonesBurned) expect(b.risen).toBeGreaterThan(a.risen);
+    }
+    expect(summer.totals.earnedPerBones).toBeGreaterThan(0);
+  });
+
   it("is deterministic for a seed", () => {
     expect(simulate(by("base"), { seed: 11 }).totals).toEqual(simulate(by("base"), { seed: 11 }).totals);
   });

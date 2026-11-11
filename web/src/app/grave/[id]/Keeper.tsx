@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSignMessage } from "wagmi";
 import { Button, Panel, cx } from "@/components/ui";
 import { CHAINS, shortAddress, type ChainId } from "@/core/chains";
-import { nearTxUrl, type GraveJson } from "@/core/near";
+import { formatBones, nearTxUrl, parseBones, type GraveJson } from "@/core/near";
 import { post } from "@/lib/api";
 import { canonicalPayout, encodeSolanaSignature, prepareOwnerAction, receiverAccountId, signerKind, type OwnerAction } from "@/lib/ownerAction";
 import { useWallets } from "@/lib/wallets";
@@ -20,6 +20,7 @@ const LABEL: Record<OwnerAction, string> = {
   set_epitaph: "Epitaph",
   set_payout_address: "Payout address",
   transfer_grave: "Hand it down",
+  exhume_bones: "Exhume BONES",
 };
 
 /**
@@ -27,7 +28,7 @@ const LABEL: Record<OwnerAction, string> = {
  * plain-text message (no transaction, no fee). The Sexton relays it; the
  * contract checks the signature and nonce itself.
  */
-export function Keeper({ g, onDone }: { g: GraveJson; onDone: () => void }) {
+export function Keeper({ g, inside, onDone }: { g: GraveJson; inside: string; onDone: () => void }) {
   const w = useWallets();
   const { mutateAsync: signEvm } = useSignMessage();
   const [open, setOpen] = useState<OwnerAction | null>(null);
@@ -35,6 +36,7 @@ export function Keeper({ g, onDone }: { g: GraveJson; onDone: () => void }) {
   const [epitaph, setEpitaph] = useState(g.epitaph ?? "");
   const [payout, setPayout] = useState(g.payout_to ?? "");
   const [receiver, setReceiver] = useState("");
+  const [exhume, setExhume] = useState("");
   const kind = signerKind(g.owner_id);
   const ch = CHAINS[g.chain as ChainId];
 
@@ -48,6 +50,12 @@ export function Keeper({ g, onDone }: { g: GraveJson; onDone: () => void }) {
         if ([...value].length > 140) throw new Error("Epitaphs are limited to 140 characters.");
       } else if (action === "set_payout_address") {
         value = canonicalPayout(g.chain as ChainId, payout);
+      } else if (action === "exhume_bones") {
+        const base = parseBones(exhume);
+        if (!base) throw new Error("Enter an amount of BONES.");
+        if (BigInt(base) > BigInt(inside)) throw new Error(`The grave holds ${formatBones(inside)} BONES.`);
+        value = base;
+        note = "They leave the grave for your wallet, and stop following the NFT. Whoever holds them at a rising gets its share.";
       } else {
         const r = receiverAccountId(receiver);
         if (r.accountId === g.owner_id) throw new Error("That account already owns this grave.");
@@ -81,6 +89,7 @@ export function Keeper({ g, onDone }: { g: GraveJson; onDone: () => void }) {
       const r = await post<{ nearTx: string }>("/api/owner", { action: s.action, graveId: g.id, value: s.value, nonce: s.nonce, signature });
       setStep({ k: "done", action: s.action, nearTx: r.nearTx });
       if (s.action === "transfer_grave") setReceiver("");
+      if (s.action === "exhume_bones") setExhume("");
       onDone();
     } catch (e) {
       const m = (e as Error).message ?? "";
@@ -124,9 +133,32 @@ export function Keeper({ g, onDone }: { g: GraveJson; onDone: () => void }) {
         />
       ),
     },
+    ...(BigInt(inside || "0") > 0n
+      ? [
+          {
+            action: "exhume_bones" as OwnerAction,
+            summary: `${formatBones(inside)} BONES inside the grave`,
+            body: (
+              <div className="flex gap-2">
+                <input
+                  aria-label="BONES to exhume"
+                  value={exhume}
+                  onChange={(e) => setExhume(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="Amount"
+                  className="h-11 min-w-0 flex-1 rounded-[10px] border border-line-strong bg-loam px-4 text-sm text-bone tabular placeholder:text-bone-4 focus:border-bone-3 focus:outline-none"
+                />
+                <Button size="sm" variant="ghost" onClick={() => setExhume(`${BigInt(inside) / 1_000_000n}.${(BigInt(inside) % 1_000_000n).toString().padStart(6, "0")}`)}>
+                  All
+                </Button>
+              </div>
+            ),
+          },
+        ]
+      : []),
     {
       action: "transfer_grave",
-      summary: "Give this grave, and everything it is owed, to someone else",
+      summary: "Give this grave, its account and everything it is owed, to someone else",
       body: (
         <input
           aria-label="New owner"
@@ -169,7 +201,7 @@ export function Keeper({ g, onDone }: { g: GraveJson; onDone: () => void }) {
               {isOpen && (
                 <div className="space-y-3 border-t border-line bg-loam-2/60 px-4 py-4">
                   {r.action === "transfer_grave" && (
-                    <p className="text-xs text-fading">The new owner gets every future payout and share. Only they can hand it back.</p>
+                    <p className="text-xs text-fading">The new owner gets the grave&rsquo;s account, the BONES inside it, every unclaimed share and every future payout. You keep nothing; only they can hand it back.</p>
                   )}
                   {r.body}
                   {s?.k === "review" ? (

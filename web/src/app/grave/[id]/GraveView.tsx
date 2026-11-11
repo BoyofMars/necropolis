@@ -11,6 +11,7 @@ import {
   CONTRACT_ID,
   MPC_SIGNER,
   NETWORK,
+  graveAccountId,
   nearAccountUrl,
   registry,
   type EventJson,
@@ -28,6 +29,7 @@ import { baseOf, obsOf, stateOf, termsOf } from "@/lib/rite";
 import { ownerIds, useWallets } from "@/lib/wallets";
 import { testPool } from "@/core/testnet";
 import { Candles } from "./Candles";
+import { GraveAccount } from "./GraveAccount";
 import { Keeper } from "./Keeper";
 import { MarketProof, MPC_READ_CHECKS } from "./MarketProof";
 
@@ -39,20 +41,23 @@ interface Bundle {
   reading: MarketReadingJson | null;
   bones: GraveBonesJson | null;
   genesis: number | null;
+  /** BONES inside the grave's own account */
+  inside: string;
 }
 
 async function load(id: number): Promise<Bundle | null> {
   const grave = await registry.grave(id);
   if (!grave) return null;
-  const [plot, events, binding, reading, bones, genesis] = await Promise.all([
+  const [plot, events, binding, reading, bones, genesis, inside] = await Promise.all([
     registry.plot(grave.plot_id),
     registry.events(),
     registry.poolBinding(grave.plot_id).catch(() => null),
     registry.marketReading(grave.plot_id).catch(() => null),
     registry.graveBones(id).catch(() => null),
     registry.bonesGenesis().catch(() => null),
+    registry.bonesBalance(graveAccountId(id)).catch(() => "0"),
   ]);
-  return { grave, plot, events, binding, reading, bones, genesis };
+  return { grave, plot, events, binding, reading, bones, genesis, inside };
 }
 
 export function GraveView({ id }: { id: number }) {
@@ -92,7 +97,7 @@ export function GraveView({ id }: { id: number }) {
     );
   }
 
-  const { grave: g, plot, events, binding, reading, bones, genesis } = q.data;
+  const { grave: g, plot, events, binding, reading, bones, genesis, inside } = q.data;
   const ch = CHAINS[g.chain as ChainId];
   const stage = graveStage(g, plot);
   // Ownership follows the NEAR owner id (which changes on transfer), not the burier.
@@ -105,8 +110,10 @@ export function GraveView({ id }: { id: number }) {
   // Only risings after this burial can owe it anything.
   const after = (e: EventJson) => e.plot_id !== g.plot_id && Number(e.at) > Number(g.buried_at);
   const ownedEvents = events.filter((e) => after(e) && (genesis === null || e.id < genesis));
-  const bonesRisings = genesis === null ? 0 : events.filter((e) => after(e) && e.id >= genesis).length;
-  const refresh = () => qc.invalidateQueries({ queryKey: ["grave", id] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["grave", id] });
+    qc.invalidateQueries({ queryKey: ["graveAccount", id] });
+  };
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
@@ -126,6 +133,9 @@ export function GraveView({ id }: { id: number }) {
             <a href={`/api/grave/${g.id}/image.svg`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-[10px] border border-line px-3 text-sm text-bone-2 hover:text-bone">
               NFT image ↗
             </a>
+            <Link href={`/crypt/${g.id}`} className="inline-flex h-10 items-center rounded-[10px] border border-line px-3 text-sm text-bone-2 hover:text-bone">
+              The crypt · holder only
+            </Link>
           </div>
         </div>
 
@@ -228,34 +238,31 @@ export function GraveView({ id }: { id: number }) {
           {plot?.state.kind === "RISEN" && <Raise g={g} onDone={refresh} />}
 
           {/* owner actions, wallet-signed */}
-          {mine && <Keeper g={g} onDone={refresh} />}
+          {mine && <Keeper g={g} inside={inside} onDone={refresh} />}
 
-          {/* ossuary */}
-          <Panel className="p-6">
-            <h2 className="font-display text-2xl text-bone">Ossuary shares</h2>
-            <p className="mt-1 text-sm text-bone-3">
-              {genesis === null
-                ? "Every rising elsewhere in the cemetery while this grave rests pays it a share of the tithe."
-                : "This burial minted $BONES to its burier. Every rising elsewhere pays BONES holders their share of the tithe; claim on My graves."}
-            </p>
-            {bonesRisings > 0 && (
-              <p className="mt-2 text-sm text-bone-2">
-                {bonesRisings} rising{bonesRisings === 1 ? "" : "s"} since $BONES began.{" "}
-                <Link href="/graves" className="text-ember hover:underline">
-                  See what your BONES are owed →
-                </Link>
+          {/* the account this NFT controls: its BONES, what they earned, its history */}
+          {genesis !== null && <GraveAccount g={g} plot={plot} events={events} genesis={genesis} mintedTo={bones?.minted_to ?? null} />}
+
+          {/* ossuary: per-grave shares, from risings before $BONES */}
+          {(genesis === null || ownedEvents.length > 0) && (
+            <Panel className="p-6">
+              <h2 className="font-display text-2xl text-bone">{genesis === null ? "Ossuary shares" : "Shares from before $BONES"}</h2>
+              <p className="mt-1 text-sm text-bone-3">
+                {genesis === null
+                  ? "Every rising elsewhere in the cemetery while this grave rests pays it a share of the tithe."
+                  : "Risings before $BONES began paid each resting grave directly, to its holder at claim time."}
               </p>
-            )}
-            {ownedEvents.length === 0 ? (
-              genesis === null && <p className="mt-4 text-sm text-bone-4">No other plot has risen since this burial. Yet.</p>
-            ) : (
-              <ul className="mt-4 divide-y divide-line">
-                {ownedEvents.map((e) => (
-                  <ShareRow key={e.id} g={g} e={e} />
-                ))}
-              </ul>
-            )}
-          </Panel>
+              {ownedEvents.length === 0 ? (
+                <p className="mt-4 text-sm text-bone-4">No other plot has risen since this burial. Yet.</p>
+              ) : (
+                <ul className="mt-4 divide-y divide-line">
+                  {ownedEvents.map((e) => (
+                    <ShareRow key={e.id} g={g} e={e} />
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          )}
 
           {/* proof */}
           <Panel className="p-6">

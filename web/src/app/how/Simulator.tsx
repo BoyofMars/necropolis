@@ -9,6 +9,7 @@ import { SCENARIOS, simulate } from "@/core/simulation";
 const OWNERS = "var(--chart-owners)";
 const OSSUARY = "var(--chart-ossuary)";
 
+const bones = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${Math.round(n)}`);
 const k = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}k` : `$${Math.round(n)}`);
 
 export function Simulator() {
@@ -55,6 +56,19 @@ export function Simulator() {
           <div key={a}>
             <dt className="eyebrow">{a}</dt>
             <dd className="mt-1 font-display text-2xl text-bone tabular">{b}</dd>
+          </div>
+        ))}
+      </dl>
+      <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-4">
+        {[
+          ["$BONES minted", bones(t.bonesMinted)],
+          ["$BONES burned", bones(t.bonesBurned)],
+          ["Supply on day 60", bones(t.bonesSupply)],
+          ["Paid per BONES held all 60 days", t.earnedPerBones >= 0.01 ? `$${t.earnedPerBones.toFixed(2)}` : t.earnedPerBones > 0 ? `$${t.earnedPerBones.toFixed(4)}` : "$0"],
+        ].map(([a, b]) => (
+          <div key={a}>
+            <dt className="eyebrow">{a}</dt>
+            <dd className="mt-1 text-lg font-semibold text-bone tabular">{b}</dd>
           </div>
         ))}
       </dl>
