@@ -26,9 +26,25 @@ export default function Landing() {
             </h1>
             <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-bone-2">
               Send a dead memecoin to its own grave on Solana or Base, an address only NEAR can open. If the coin
-              ever <em className="not-italic text-bone">genuinely</em> comes back, you get 80% of it back. The other 20% is
-              shared by every grave still resting in the cemetery.
+              ever <em className="not-italic text-bone">genuinely</em> comes back, you get 80% of it back. Burying also mints
+              you <span className="text-ember">$BONES</span>: a share of the 20% every other coin pays when it rises.
             </p>
+            <ul className="mt-5 max-w-[34rem] space-y-2 text-sm leading-relaxed text-bone-3">
+              <li className="flex gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ember" aria-hidden />
+                <span>
+                  <span className="text-bone-2">Why bury instead of hold?</span> You give up 20% of a lottery ticket you&rsquo;d forgotten
+                  about. You get a share of every other ticket in the ground.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ember" aria-hidden />
+                <span>
+                  <span className="text-bone-2">Something back today.</span> On Solana, burying your whole balance closes the token
+                  account and refunds its rent (about 0.002 SOL) to you. Necropolis pays the fees.
+                </span>
+              </li>
+            </ul>
             <div className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href="/scan" size="lg">
                 Scan my wallet for the dead
@@ -215,7 +231,7 @@ export default function Landing() {
           <Reveal>
             <p className="eyebrow">V · Where the upside comes from</p>
             <h2 className="mt-4 max-w-3xl font-display text-4xl leading-tight text-bone sm:text-5xl">
-              No yield. No new token. Only the buried coins themselves.
+              No yield. One token, $BONES, backed only by the buried coins themselves.
             </h2>
           </Reveal>
           <div className="mt-12 grid gap-4 lg:grid-cols-3">
@@ -228,13 +244,14 @@ export default function Landing() {
                 </div>
                 <p className="mt-5 text-bone-2">
                   When a plot rises, each of its graves is raised: 80% of the tokens go back to their owner, and the
-                  20% tithe goes to the <span className="text-bone">ossuary</span>. The ossuary is split among every grave
-                  resting in other plots, in proportion to what they buried, after a 2% upkeep fee. One rising pays the
-                  whole cemetery.
+                  20% tithe goes to the <span className="text-bone">ossuary</span>. After a 2% upkeep fee, the ossuary is split
+                  among <span className="text-ember">$BONES</span> holders by what they held at the moment of the rising. One
+                  rising pays the whole cemetery.
                 </p>
                 <p className="mt-3 text-bone-2">
-                  A single dead bag is a lottery ticket with terrible odds. A grave is a share of every resurrection that
-                  happens while it rests.
+                  $BONES is an NEP-141 token whose supply follows the dead. It&rsquo;s minted when you bury, one per dollar of
+                  ossuary weight, and burned when your own coin rises. It&rsquo;s transferable, so you can sell your claim on
+                  future resurrections without waiting for one. Anyone who buys in after a rising gets nothing from that rising.
                 </p>
               </div>
             </Reveal>

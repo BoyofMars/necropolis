@@ -174,6 +174,33 @@ export async function claimShare(graveId: number, eventId: number) {
   return { txs: await broadcastPayout(payout), payout, nearTx: res.hash };
 }
 
+/** Pay a $BONES holder their share of a rising, to their own key on the risen chain. */
+export async function claimBones(eventId: number, holder: string) {
+  const ev = (await registry.events()).find((e) => e.id === eventId);
+  if (!ev) throw new BurialError("Resurrection event not found.", "NOT_FOUND", 404);
+  const chain = ev.chain as ChainId;
+  const args: Record<string, unknown> = { event_id: eventId, holder, recipient: null, auth: null, solana: null, evm: null };
+  if (CHAINS[chain].family === "solana") args.solana = await solanaFee(chain);
+  else {
+    const gas = await evmGas(chain);
+    const ossuary = await registry.ossuary(ev.chain);
+    if (ossuary) await fundGas(chain, ossuary, 1, 90_000n, gas.maxFee);
+    args.evm = { max_fee_per_gas: gas.max_fee_per_gas, max_priority_fee_per_gas: gas.max_priority_fee_per_gas, gas_limit: gas.gas_limit };
+  }
+  const key = `bones:${eventId}:${holder}`;
+  const before = await registry.payout(key);
+  const res = await callContractRaw("claim_bones", args);
+  if (res.failure) {
+    const m = JSON.stringify(res.failure);
+    throw new BurialError(m.match(/Smart contract panicked: ([^"\\]+)/)?.[1] ?? "NEAR rejected the claim.", "REJECTED", 400);
+  }
+  if (!parseEvents(res.logs).some((e) => e.event === "payout_signed")) {
+    throw new BurialError("The MPC network did not sign the claim. Try again.", "SIGN_FAILED", 502);
+  }
+  const payout = await freshlySigned(key, before);
+  return { txs: await broadcastPayout(payout), payout, nearTx: res.hash };
+}
+
 export function explorerFor(chain: ChainId, sig: string) {
   return CHAINS[chain].explorer.tx(sig);
 }

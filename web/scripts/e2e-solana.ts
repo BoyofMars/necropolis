@@ -17,7 +17,7 @@ import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import bs58 from "bs58";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { actionMessage, candleMessage, registry } from "../src/core/near";
+import { actionMessage, bonesTransferMessage, candleMessage, registry } from "../src/core/near";
 
 const args = process.argv.slice(2);
 const stage = args.find((a) => !a.startsWith("--") && !/^\d+$/.test(a) && !a.startsWith("http")) ?? "all";
@@ -206,8 +206,51 @@ async function candle(u: Keypair, graveId: number) {
   if (forged.startsWith("ACCEPTED") || again.startsWith("ACCEPTED")) throw new Error("candle check failed");
 }
 
+const bones = (raw: string | bigint) => (Number(raw) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 6 });
+
+/** Send $BONES with a wallet signature through the relay. `--to` is a test-wallet name or an address. */
+async function bonesSend(u: Keypair, to: string, amountBones: string) {
+  const holder = Buffer.from(u.publicKey.toBytes()).toString("hex");
+  const receiver = existsSync(`.e2e-${to}.json`)
+    ? Buffer.from(Keypair.fromSecretKey(bs58.decode(JSON.parse(readFileSync(`.e2e-${to}.json`, "utf8")).secret)).publicKey.toBytes()).toString("hex")
+    : to;
+  const amount = (BigInt(Math.round(Number(amountBones) * 1e6))).toString();
+  const nonce = Number(await registry.nonce(holder));
+  const signature = bs58.encode(ed25519.sign(new TextEncoder().encode(bonesTransferMessage(receiver, amount, nonce)), u.secretKey.slice(0, 32)));
+  log(`BONES before: holder ${bones(await registry.bonesBalance(holder))}, receiver ${bones(await registry.bonesBalance(receiver))}`);
+  const r = await call<{ nearTx: string }>("/api/bones/transfer", { holder, receiver, amount, nonce, signature });
+  log(`sent ${amountBones} BONES → near tx`, r.nearTx);
+  const replay = await call("/api/bones/transfer", { holder, receiver, amount, nonce, signature }).then(() => "ACCEPTED (bad)", (e: Error) => `refused: ${e.message}`);
+  log("replayed transfer →", replay);
+  log(`BONES after: holder ${bones(await registry.bonesBalance(holder))}, receiver ${bones(await registry.bonesBalance(receiver))}`);
+  if (replay.startsWith("ACCEPTED")) throw new Error("replay accepted");
+}
+
+/** Claim this wallet's $BONES share of a rising. */
+async function bonesClaim(u: Keypair, eventId: number) {
+  const holder = Buffer.from(u.publicKey.toBytes()).toString("hex");
+  const ev = (await registry.events()).find((e) => e.id === eventId);
+  if (!ev) throw new Error(`event ${eventId} not found`);
+  const s = await registry.bonesShare(eventId, holder);
+  log(`$${ev.symbol} rising ${eventId}: held ${bones(s!.balance_at_rising)} of ${bones(s!.supply_at_rising ?? "0")} BONES → share ${s!.amount ?? s!.reason}`);
+  const before = await tokenBalance(u.publicKey, ev.token);
+  const r = await call<{ txs: string[]; nearTx: string }>("/api/bones/claim", { eventId, holder });
+  log("claim near tx", r.nearTx, "solana", r.txs.join(", "));
+  await sleep(8_000);
+  const after = await tokenBalance(u.publicKey, ev.token);
+  log(`$${ev.symbol}: ${before} → ${after} (+${after - before})`);
+}
+
 (async () => {
   const u = user();
+  if (stage === "bones-send") {
+    await bonesSend(u, flag("to")!, flag("amount")!);
+    return;
+  }
+  if (stage === "bones-claim") {
+    await bonesClaim(u, Number(flag("event")));
+    return;
+  }
   if (stage === "candle") {
     for (const g of (flag("grave") ?? "0").split(",")) await candle(u, Number(g));
     return;

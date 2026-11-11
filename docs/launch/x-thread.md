@@ -34,9 +34,9 @@ NEAR MPC reads the pool on Solana and the contract computes the market itself. T
 
 **4/**
 
-The other 20% goes to the ossuary, shared by every grave still resting.
+The other 20% goes to the ossuary. Burying mints you $BONES (NEP-141), your share of it: minted as coins die, burned as they rise, transferable.
 
-On testnet, a $COPIUM grave that never rose has been paid twice, from two other coins' risings. Its epitaph: "Never rose. Got paid twice."
+On testnet, a $COPIUM grave that never rose has been paid by three other coins' risings.
 
 ---
 

@@ -19,7 +19,7 @@ const BASE = process.argv[2] ?? "https://necropolis-wine.vercel.app";
 const OUT = join(process.cwd(), "demo");
 const WALLET = "9wZiympr3GJQrqHyHW7TPEpFApVx7S4ZAHwbfhzxqibN"; // devnet test wallet from the E2E runs
 const NORMIE = "0x47b464eDB8Dc9BC67b5CD4C9310BB87b773845bD"; // a real dead Base memecoin
-const SCENES = 9;
+const SCENES = 10;
 
 /** Caption bar, rendered from sessionStorage on every page load so it's there from first paint. */
 const CAPTION_SCRIPT = `(() => {
@@ -98,51 +98,57 @@ async function glide(page: Page, to: string | number, ms = 1600) {
   const recordingStarted = Date.now();
   await page.goto(`${BASE}/offline`, { waitUntil: "domcontentloaded" }); // same origin, so sessionStorage works from scene 1
 
-  await scene(page, 1, "/", "A graveyard for dead memecoins.", "Bury the bag on its own chain. A NEAR contract holds the vault, with no bridge. If the coin ever comes back, you get it back.", "Bury the bag.");
+  await scene(page, 1, "/", "A graveyard for dead memecoins.", "Bury a dead bag on its own chain, in a vault only a NEAR contract can open. If it comes back, you get 80% back. Burying also mints $BONES.", "Bury the bag.");
   await page.waitForLoadState("load").catch(() => {});
   const introSkip = (Date.now() - recordingStarted) / 1000; // the warm-up page, cut from the MP4
-  await sleep(3500);
-  await glide(page, 620, 2200);
+  await sleep(5000);
+  await glide(page, 200, 1400);
   await sleep(2500);
 
-  await scene(page, 2, `/scan?address=${WALLET}&net=testnet`, "Who died in your wallet?", "Every token gets a death score from its market data. Here, a devnet test wallet.", /tokens? (are|is) dead|came back|tokens,/);
-  await sleep(4500);
-
-  await scene(page, 3, `/obituary/sol-devnet/${WALLET}`, "Share the obituary.", "One headstone per dead coin. The coins that came back glow.", "Share on X");
-  await sleep(2500);
-  await glide(page, 260, 1400);
-  await sleep(3000);
-
-  await scene(page, 4, `/token/base/${NORMIE}`, "Real autopsies, live mainnet data.", "Cause of death, time of death, and the evidence behind them.", "Death score");
-  await sleep(3000);
-  await glide(page, 520, 2000);
-  await sleep(3000);
-
-  await scene(page, 5, "/grave/3", "NEAR MPC as the coroner.", "This plot rose on liquidity and market cap that NEAR's MPC network read from a real Raydium pool on Solana. The coroner couldn't fake them.", "Market read by NEAR MPC");
+  // Lead with the strongest proof: a rising judged on numbers NEAR MPC read from a real pool.
+  await scene(page, 2, "/grave/3", "NEAR MPC as the coroner.", "This plot rose on liquidity and market cap that NEAR's MPC network read from a real Raydium pool on Solana. The coroner couldn't fake them.", "Market read by NEAR MPC");
   await sleep(2000);
   await glide(page, "The rite", 1800);
   await sleep(3500);
   await glide(page, "Market read by NEAR MPC", 1600);
   await sleep(4500);
 
-  await scene(page, 6, "/grave/1", "The ossuary pays the graves that stay dead.", "This $COPIUM grave never rose. Two other coins did, and their tithe paid it twice, signed by the ossuary's MPC key.", "Ossuary shares");
-  await sleep(3000);
+  await scene(page, 3, "/grave/4", "$BONES: supply follows the dead.", "This $LAZARUS burial minted 110 BONES. When the coin rose, they burned, and its tithe paid everyone who held BONES at that moment.", "$BONES minted");
+  await sleep(4000);
   await glide(page, "Ossuary shares", 1800);
+  await sleep(3500);
+
+  await scene(page, 4, "/grave/1", "The graves that stay dead get paid.", "This $COPIUM grave never rose. Other coins' risings paid it, signed by the ossuary's MPC key. Now its BONES do the same.", "Ossuary shares");
+  await sleep(2500);
+  await glide(page, "Ossuary shares", 1800);
+  await sleep(4000);
+
+  await scene(page, 5, `/scan?address=${WALLET}&net=testnet`, "Who died in your wallet?", "Every token gets a death score from its market data. Here, a devnet test wallet.", /tokens? (are|is) dead|came back|tokens,/);
   await sleep(4500);
 
-  await scene(page, 7, "/cemetery", "Candles, signed by wallets.", "Any Solana or EVM wallet lights one per grave. The NEAR contract checks the signature and keeps the count.", "Most mourned");
+  await scene(page, 6, `/obituary/sol-devnet/${WALLET}`, "Share the obituary.", "One headstone per dead coin. The coins that came back glow.", "Share on X");
+  await sleep(2500);
+  await glide(page, 260, 1400);
+  await sleep(3000);
+
+  await scene(page, 7, `/token/base/${NORMIE}`, "Real autopsies, live mainnet data.", "Cause of death, time of death, and the evidence behind them.", "Death score");
+  await sleep(3000);
+  await glide(page, 520, 2000);
+  await sleep(2500);
+
+  await scene(page, 8, "/cemetery", "Candles, signed by wallets.", "Any Solana or EVM wallet lights one per grave. The NEAR contract checks the signature and keeps the count.", "Most mourned");
   await sleep(1500);
   await glide(page, "The boards", 1800);
-  await sleep(4500);
+  await sleep(4000);
 
-  await scene(page, 8, "/proof", "Don't trust us. Check.", "Re-derive every vault address in your browser and match it against NEAR's MPC network, live.", "Check it");
+  await scene(page, 9, "/proof", "Don't trust us. Check.", "Re-derive every vault address in your browser and match it against NEAR's MPC network, live.", "Check it");
   await page.locator("li span", { hasText: "✓" }).nth(3).waitFor({ timeout: 30_000 }).catch(() => {});
   await sleep(2500);
   await page.locator("li span", { hasText: "✓" }).first().scrollIntoViewIfNeeded().catch(() => {});
   await glide(page, 180, 1200);
   await sleep(4000);
 
-  await scene(page, 9, "/", "Bury your bag. Keep the upside.", "necropolis-wine.vercel.app · NEAR Chain Signatures · Solana · Base", "Bury the bag.");
+  await scene(page, 10, "/", "Bury your bag. Keep the upside.", "necropolis-wine.vercel.app · $BONES · NEAR Chain Signatures · Solana · Base", "Bury the bag.");
   await sleep(4500);
   await still(page, SCENES + 1);
 

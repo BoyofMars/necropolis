@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionMessage, CONTRACT_ID } from "@/core/near";
+import { actionMessage, bonesTransferMessage, CONTRACT_ID } from "@/core/near";
 import { canonicalPayout, receiverAccountId, signerKind } from "@/lib/ownerAction";
 
 describe("owner action messages", () => {
@@ -7,6 +7,13 @@ describe("owner action messages", () => {
     // Same vector as contract/src/auth.rs `message_format`.
     expect(actionMessage("set_epitaph", 7, [["epitaph", "gm"]], 3)).toBe(
       `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: set_epitaph\ngrave: 7\nepitaph: gm\nnonce: 3`,
+    );
+  });
+
+  it("builds the $BONES transfer message the contract verifies", () => {
+    // contract/src/tests.rs `wallet_holders_move_bones_with_a_signature` checks a real ed25519 signature over this string.
+    expect(bonesTransferMessage("alice.testnet", "4000000", 0)).toBe(
+      `Necropolis v1\ncontract: ${CONTRACT_ID}\naction: transfer_bones\nreceiver: alice.testnet\namount: 4000000\nnonce: 0`,
     );
   });
 

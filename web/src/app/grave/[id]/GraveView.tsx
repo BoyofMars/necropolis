@@ -14,6 +14,7 @@ import {
   nearAccountUrl,
   registry,
   type EventJson,
+  type GraveBonesJson,
   type GraveJson,
   type MarketReadingJson,
   type PlotJson,
@@ -36,18 +37,22 @@ interface Bundle {
   events: EventJson[];
   binding: PoolBindingJson | null;
   reading: MarketReadingJson | null;
+  bones: GraveBonesJson | null;
+  genesis: number | null;
 }
 
 async function load(id: number): Promise<Bundle | null> {
   const grave = await registry.grave(id);
   if (!grave) return null;
-  const [plot, events, binding, reading] = await Promise.all([
+  const [plot, events, binding, reading, bones, genesis] = await Promise.all([
     registry.plot(grave.plot_id),
     registry.events(),
     registry.poolBinding(grave.plot_id).catch(() => null),
     registry.marketReading(grave.plot_id).catch(() => null),
+    registry.graveBones(id).catch(() => null),
+    registry.bonesGenesis().catch(() => null),
   ]);
-  return { grave, plot, events, binding, reading };
+  return { grave, plot, events, binding, reading, bones, genesis };
 }
 
 export function GraveView({ id }: { id: number }) {
@@ -87,7 +92,7 @@ export function GraveView({ id }: { id: number }) {
     );
   }
 
-  const { grave: g, plot, events, binding, reading } = q.data;
+  const { grave: g, plot, events, binding, reading, bones, genesis } = q.data;
   const ch = CHAINS[g.chain as ChainId];
   const stage = graveStage(g, plot);
   // Ownership follows the NEAR owner id (which changes on transfer), not the burier.
@@ -96,7 +101,9 @@ export function GraveView({ id }: { id: number }) {
   const latest = plot?.last_observation ? obsOf(plot.last_observation) : undefined;
   const checks = plot && latest && terms ? checkObservation(terms, baseOf(plot), latest) : [];
   const prog = plot && terms ? riteProgress(terms, baseOf(plot), stateOf(plot), latest) : null;
-  const ownedEvents = events.filter((e) => e.plot_id !== g.plot_id);
+  // Risings before $BONES pay per grave; from genesis on they pay BONES holders.
+  const ownedEvents = events.filter((e) => e.plot_id !== g.plot_id && (genesis === null || e.id < genesis));
+  const bonesRisings = genesis === null ? 0 : events.filter((e) => e.id >= genesis && e.plot_id !== g.plot_id).length;
   const refresh = () => qc.invalidateQueries({ queryKey: ["grave", id] });
 
   return (
@@ -141,7 +148,9 @@ export function GraveView({ id }: { id: number }) {
             <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4">
               {[
                 ["Value at burial", usd(Number(g.value_usd_e6) / 1e6, { precise: true })],
-                ["Ossuary weight", Number(g.weight_usd_e6) > 0 ? usd(Number(g.weight_usd_e6) / 1e6, { precise: true }) : "unmarked"],
+                bones
+                  ? ["$BONES minted", `${(Number(bones.amount) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })}${bones.settled ? " · burned" : ""}`]
+                  : ["Ossuary weight", Number(g.weight_usd_e6) > 0 ? usd(Number(g.weight_usd_e6) / 1e6, { precise: true }) : "unmarked"],
                 ["Death score", `${g.death_score}`],
                 ["If it rises", `${tokenAmount(BigInt(g.amount) - BigInt(g.tithe), g.decimals)} back`],
               ].map(([k, v]) => (
@@ -222,9 +231,21 @@ export function GraveView({ id }: { id: number }) {
           {/* ossuary */}
           <Panel className="p-6">
             <h2 className="font-display text-2xl text-bone">Ossuary shares</h2>
-            <p className="mt-1 text-sm text-bone-3">Every rising elsewhere in the cemetery while this grave rests pays it a share of the tithe.</p>
+            <p className="mt-1 text-sm text-bone-3">
+              {genesis === null
+                ? "Every rising elsewhere in the cemetery while this grave rests pays it a share of the tithe."
+                : "This burial minted $BONES to its burier. Every rising elsewhere pays BONES holders their share of the tithe; claim on My graves."}
+            </p>
+            {bonesRisings > 0 && (
+              <p className="mt-2 text-sm text-bone-2">
+                {bonesRisings} rising{bonesRisings === 1 ? "" : "s"} since $BONES began.{" "}
+                <Link href="/graves" className="text-ember hover:underline">
+                  See what your BONES are owed →
+                </Link>
+              </p>
+            )}
             {ownedEvents.length === 0 ? (
-              <p className="mt-4 text-sm text-bone-4">No other plot has risen since this burial. Yet.</p>
+              genesis === null && <p className="mt-4 text-sm text-bone-4">No other plot has risen since this burial. Yet.</p>
             ) : (
               <ul className="mt-4 divide-y divide-line">
                 {ownedEvents.map((e) => (

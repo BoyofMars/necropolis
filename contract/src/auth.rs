@@ -56,6 +56,20 @@ pub fn action_message(contract: &str, action: &str, grave_id: u64, fields: &[(&s
     m
 }
 
+/// Canonical message for actions on an account rather than a grave ($BONES
+/// transfers and claims). Same shape as `action_message`, without the grave line.
+pub fn account_message(contract: &str, action: &str, fields: &[(&str, String)], nonce: u64) -> String {
+    let mut m = format!("Necropolis v1\ncontract: {}\naction: {}\n", contract, action);
+    for (k, v) in fields {
+        m.push_str(k);
+        m.push_str(": ");
+        m.push_str(v);
+        m.push('\n');
+    }
+    m.push_str(&format!("nonce: {}", nonce));
+    m
+}
+
 fn decode_sig(sig: &str) -> Option<Vec<u8>> {
     if let Some(h) = sig.strip_prefix("0x") {
         return hex::decode(h).ok();

@@ -1,8 +1,8 @@
 # Necropolis
 
-**A graveyard for dead memecoins on Solana and Base.** You bury a dead token on its own chain, NEAR's MPC network verifies the burial, and if the coin ever *objectively* comes back you get 80% of it back. The other 20% is shared by every grave still resting in the cemetery.
+**A graveyard for dead memecoins on Solana and Base.** You bury a dead token on its own chain, NEAR's MPC network verifies the burial, and if the coin ever *objectively* comes back you get 80% of it back. Burying also mints you **$BONES** (NEP-141): a share of the 20% every other coin pays when it rises.
 
-> Dead tokens shouldn't just disappear from a wallet. They can become positions in a market about resurrection.
+> You give up 20% of a lottery ticket you'd forgotten about. You get a share of every other ticket in the ground.
 
 *Not affiliated with necropolis.fund, an unrelated Robinhood Chain project that funds bonding-curve graduations. This Necropolis buries Solana and Base tokens and verifies them on NEAR.*
 
@@ -12,7 +12,26 @@
 | **MPC signer** | [`v1.signer-prod.testnet`](https://testnet.nearblocks.io/address/v1.signer-prod.testnet) (Chain Signatures + foreign-chain verification) |
 | **Origin chains** | Solana devnet, Base Sepolia (mainnet chains are coded but closed) |
 | **Live demo** | **https://necropolis-wine.vercel.app** (testnet) |
+| **Token** | **$BONES**, NEP-141 on `necropolis.testnet` (`ft_metadata`, `ft_balance_of`, `ft_transfer`, `ft_transfer_call`) |
 | **Tracks** | Memecoins With Mechanics · Open Innovation · NFTs That Do Something |
+
+## See it in 60 seconds
+
+1. **A rising judged by NEAR MPC, not by us.** Open [`/grave/3`](https://necropolis-wine.vercel.app/grave/3). $NGMI trades in a real Raydium pool on Solana devnet. NEAR's MPC network read the pool, both vaults and the mint in one request, and the contract computed liquidity and market cap itself. The plot rose on those numbers. The page shows the pool, the MPC payload hash and the transactions ([proof below](#a-rising-judged-on-numbers-near-mpc-read-from-solana)).
+2. **$BONES pays the graves that stay dead.** [`/grave/1`](https://necropolis-wine.vercel.app/grave/1) never rose, and was paid from two other coins' risings. Since $BONES, every rising pays BONES holders. When $LAZARUS rose, its burier's BONES burned and the tithe went 56.56 : 40 to two holders, one of whom only received BONES by transfer ([proof below](#bones-pays-whoever-held-it-at-the-rising)).
+3. **Who died in your wallet?** [`/scan`](https://necropolis-wine.vercel.app/scan): paste any Solana or Base wallet and every token gets a death score with its evidence. Then share the obituary.
+4. **Don't trust us. Check.** [`/proof`](https://necropolis-wine.vercel.app/proof) re-derives every vault address in your browser and matches it against NEAR's MPC network, live.
+5. **Watch it:** a 90-second captioned walkthrough of production, recorded by [`web/scripts/record-demo.ts`](web/scripts/record-demo.ts).
+
+## $BONES: a token whose supply follows the dead
+
+| | |
+|---|---|
+| **Mint** | When you bury a dead coin with ossuary weight: 1 BONES per $1 of weight, to your wallet. Supply grows as coins die. |
+| **Burn** | When your own coin's plot rises, the BONES you still hold for it are burned. Supply shrinks as coins come back. |
+| **Pay** | Each rising's ossuary pool (the 20% tithe, less 2% upkeep) is split among BONES holders by their balance **at the moment of the rising**, read from on-chain checkpoints. BONES bought after a rising gets nothing from it, so burying junk after the fact can't skim a payout. |
+| **Move** | Transferable: sell your claim on future resurrections without waiting for one. NEAR accounts use `ft_transfer` / `ft_transfer_call` (DEX-compatible). Solana and EVM holders sign a message and the relayer pays gas. |
+| **Code** | [`contract/src/bones.rs`](contract/src/bones.rs). State lives under its own storage keys, so the upgrade needed no migration. Risings before genesis keep their per-grave shares. |
 
 ---
 
@@ -25,9 +44,9 @@ Memecoins die at industrial scale. CoinGecko counts **11.6 million** tokens that
 1. **Bury.** Send a dead token to its own *grave address* on its native chain. The address is derived from the Necropolis contract through NEAR Chain Signatures, so nobody holds its key. Only the contract can ever ask NEAR's MPC network to sign for it.
 2. **Verify.** NEAR's MPC network reads the deposit directly from Solana or Base (`verify_foreign_transaction`). The contract mints a **grave**, an NEP-171 token owned by your own wallet key, only if that attestation matches the claimed deposit byte for byte.
 3. **The rite.** Coroners report vital signs. The contract decides, using terms frozen when the token's plot opened, whether the token is stirring, has had a false dawn, or has risen. A pump is not a pulse: the recovery must hold for 14 consecutive days on liquidity, volume, traders, market cap, wash-trading limits and source agreement.
-4. **Raise.** When a plot rises, the contract builds the payout transactions itself and the MPC network signs them. 80% goes back to each grave's owner, and 20% (the tithe) goes to the ossuary. The ossuary is shared pro rata by every grave resting in *other* plots.
+4. **Raise.** When a plot rises, the contract builds the payout transactions itself and the MPC network signs them. 80% goes back to each grave's owner, and 20% (the tithe) goes to the ossuary. The ossuary is shared pro rata by **$BONES** holders at the moment of the rising.
 
-There is no yield and no new token. The only value in the system is the buried coins, and they only matter if they recover.
+There is no yield. The only value in the system is the buried coins, and they only matter if they recover. $BONES is your share of them.
 
 ## Why NEAR (and why it couldn't be built elsewhere the same way)
 
@@ -36,7 +55,8 @@ There is no yield and no new token. The only value in the system is the buried c
 | **Chain Signatures** (EdDSA domain 1, ECDSA domain 0) | Every grave and ossuary is an address on Solana or Base that the contract controls. Payouts are transactions **the contract builds itself**: Solana legacy messages with on-chain ATA derivation, and EIP-1559 ERC-20 transfers with in-contract RLP. The MPC network signs them. Relayers cannot redirect a payout. |
 | **Foreign-chain transaction verification** (`verify_foreign_transaction`, MPC v3.18) | Burials are verified **trustlessly** by the MPC network. On Base it reads the ERC-20 `Transfer` log; on Solana it reads the grave's token-account state. The contract supplies the expected payload hash and the MPC contract rejects any mismatch. The same primitive makes **NEAR MPC the coroner for markets**: one request reads a Raydium pool, its vaults and the token's mint, and the contract computes liquidity, price and market cap for the rite itself (`contract/src/market.rs`). Our borsh encoder is tested against three live testnet attestations (`contract/src/foreign.rs`). |
 | **Implicit accounts + host crypto** | Graves are owned by your own key, expressed as a NEAR implicit account: a Solana key is a 64-hex account, an EVM address is a NEP-518 eth-implicit account. Owners act by signing a message in Phantom or MetaMask, verified on-chain with `ed25519_verify` / `ecrecover`. **Users never need a NEAR wallet or NEAR tokens.** |
-| **NEP-171/177 NFTs** | A grave is a functional NFT: it is the claim on a native-chain address, on the owner share and on ossuary shares. Its image is live and evolves with plot state (fresh → mossy → stirring → risen). |
+| **NEP-141 fungible token** | **$BONES**, the ossuary as a token: minted at burial, burned at rising, split by balance at each rising. One contract holds the graves and the token, so supply rules are enforced where the burials and risings happen. |
+| **NEP-171/177 NFTs** | A grave is a functional NFT: it is the claim on a native-chain address and on the 80% owner share. Its image is live and evolves with plot state (fresh → mossy → stirring → risen). |
 | **NEP-297 events** | Every burial, observation, rising and payout is a public log line. |
 
 **No bridge, anywhere.** Tokens never leave their chain and nothing is wrapped. NEAR is the coordination and verification layer, and it is essential: without Chain Signatures nobody could hold the vaults without trusting a custodian, and without foreign-chain verification the burials couldn't be proven.
@@ -141,7 +161,7 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 
 ### Sybil limits & failure cases
 
-- **Farming ossuary weight with fake dead tokens.** Weight is capped by the plot's real liquidity and requires a death score of 60 or more, so an attacker must lock real liquidity in a token that then stays dead. Residual risk: liquidity-time is cheap for a patient attacker.
+- **Farming ossuary weight (and so $BONES) with fake dead tokens.** BONES are only minted for weight, and weight is capped by the plot's real liquidity and requires a death score of 60 or more, so an attacker must lock real liquidity in a token that then stays dead. Burying after a rising can't skim it: payouts follow balances at the rising. Residual risk: liquidity-time is cheap for a patient attacker.
 - **Faking a resurrection** is unprofitable for the plot's own buriers. They pay 20% to everyone else and just get their own tokens back sooner.
 - **Ineligible tokens are refused before any transfer:** freeze authority, permanent delegate, transfer hooks or fees, honeypots, transfer taxes.
 - **MPC verification failure or timeout:** the pending burial is released and registration can be retried. The tokens are already safe in the grave address.
@@ -163,8 +183,8 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 
 ## Demo path (do X, see Y)
 
-1. **Contract tests:** `cd contract && cargo test --lib` → 48 tests pass. Three of them reproduce live MPC attestations byte for byte: `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector` and `matches_live_mpc_four_account_market_vector` (a Raydium pool, its vaults and mint read in one request). `mpc_read_market_replaces_reported_numbers_and_binds_the_pool` runs the live pool accounts through the contract's market path.
-2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 33 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation, owner messages that match the contract byte for byte, the same four-account MPC vector, and obituary wording.
+1. **Contract tests:** `cd contract && cargo test --lib` → 54 tests pass. Three of them reproduce live MPC attestations byte for byte: `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector` and `matches_live_mpc_four_account_market_vector` (a Raydium pool, its vaults and mint read in one request). `mpc_read_market_replaces_reported_numbers_and_binds_the_pool` runs the live pool accounts through the contract's market path.
+2. **Engine tests:** `cd web && npm install --legacy-peer-deps && npm test` → 34 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation, owner and $BONES messages that match the contract byte for byte, the same four-account MPC vector, and obituary wording.
 3. **Read the registry:** `near contract call-function as-read-only necropolis.testnet get_ossuary json-args '{"chain":"sol-devnet"}' network-config testnet now` → `3dowrH8pUtmCzKR8DwsK9rHq2gBGqiV8FTzK2tZA45Mx`.
 4. **Use the live app** at https://necropolis-wine.vercel.app (or run it: `cd web && cp .env.example .env.local && npm run dev`), then open:
    - `/scan`: paste any Solana or Base mainnet wallet and see its tokens triaged Dead / Critical / Fading / Alive, each with its reasons.
@@ -210,9 +230,9 @@ web/        Next.js 16 app
 
 ## Hackathon tracks
 
-- **Memecoins With Mechanics:** the product *is* a mechanic for memecoins. Burial, a contract-enforced resurrection rite with frozen terms, and an ossuary that redistributes real recovered value. The rules are public and on-chain, the sybil limits are stated above, every burial and payout is a public NEP-297 log, and there's a 60-day multi-scenario simulation.
+- **Memecoins With Mechanics:** **$BONES** is an NEP-141 token with the mechanic in the contract. Its supply reacts to the cemetery: minted as coins die, burned as they rise. Its holders split a treasury with rules (the ossuary) at every resurrection, and the rite and candles are on-chain rituals. The rules are public, the sybil limits are stated above, every mint, burn, burial and payout is a public NEP-297 log, and there's a 60-day multi-scenario simulation.
 - **Open Innovation:** a cross-chain primitive that wasn't practical before. A NEAR contract that holds Solana and Base vaults and verifies deposits into them through the MPC network, with no bridge and no NEAR wallet for users. Testnet demo with shortened timers; failure cases documented.
-- **NFTs That Do Something:** a grave NFT controls a native-chain address and carries payout rights. Transfer it and the claim moves with it. Its art is a live function of on-chain state.
+- **NFTs That Do Something:** a grave NFT controls a native-chain address and carries the 80% payout right. Transfer it and the claim moves with it. Its art is a live function of on-chain state.
 
 ## Disclosure
 
@@ -271,18 +291,34 @@ $NGMI has a real market: a Raydium CPMM pool on Solana devnet against tUSDC (`sc
 
 See it on the grave page: `/grave/3` shows the bound pool, the MPC payload hash and an **MPC** badge on every number the coroner didn't get to say.
 
+### $BONES pays whoever held it at the rising
+
+The first rising under $BONES, end to end. Wallet A (grave 000001's owner) holds the genesis BONES, sends 40 to wallet B with a signature, then $LAZARUS rises. Run with `e2e-solana.ts bones-send --to mourner --amount 40`, `bury|seance|raise --user keeper --symbol LAZARUS`, then `bones-claim --event 3` for each wallet.
+
+| Step | What happened | On-chain |
+|---|---|---|
+| Genesis | `bones_genesis` minted **96.559904 BONES** to grave 000001's owner, the only grave still resting with weight. Risings from #3 on pay holders | [NEAR tx](https://testnet.nearblocks.io/txns/9yLr8LhhjnQkypPffmVowJrmKxWefL7zu1X1iUnRToGb) |
+| Signed transfer | Wallet A sends 40 BONES to wallet B with an ed25519 signature, relayed by the Sexton. The replay is refused | [NEAR tx](https://testnet.nearblocks.io/txns/DZBwGZeitgaTvcbDFn8Y1PKJxn6m2DWPPwGS4MqremZp) |
+| Bury | 8,000,000 $LAZARUS → Grave Nº 000004, minting **110.33 BONES** to its burier (supply 206.89) | [NEAR tx](https://testnet.nearblocks.io/txns/7WZeXUjMaKQuosTnmXi3yPdLDbFL1c2pq7qNAk76v9hw) |
+| The rite | Six observations, then **risen**. At that moment the burier's 110.33 BONES are **burned** (supply back to 96.56), and the 1,440,000 $LAZARUS pool is recorded against balances of 56.56 : 40 | [rising](https://testnet.nearblocks.io/txns/FirjkVXH7TVewjzh9aKtBqt5WD4NEduQxvgQrQXiESsP) |
+| Too early | A claim before the grave was raised is refused: the tithe isn't in the ossuary yet | |
+| Raise | The burier gets 6,400,000 back (80%); the 1,600,000 tithe goes to the ossuary | [NEAR tx](https://testnet.nearblocks.io/txns/F5TXsEJpeMZ986FJKNqaNcNo8fxXx5hc9tak1x2wdPoZ) · [Solana tx](https://solscan.io/tx/3MB9qZFwmj32r3DmHz4mPsnTefhZ4SvzfTw3sJ3rooWyzgMjRyssqvJEg7XfuPAsdA93saCfZvDiFqfGC6S4Kzov?cluster=devnet) |
+| Claim (A) | Wallet A, which buried a coin that never rose: **+843,479.11 $LAZARUS** | [NEAR tx](https://testnet.nearblocks.io/txns/DpPsTfRjr7w87Jt6g541BDs8VfpXQ98uF84Xpgd6oyhR) · [Solana tx](https://solscan.io/tx/2XGDmWgC2qosVfB7acg2R7UHxiBGdKiHsUhCKwqq16hscFq26Ej6uXGKMrAosJ58DzPNaeNEqFHLXHYbhbYga1CC?cluster=devnet) |
+| Claim (B) | Wallet B, whose BONES came by transfer and who had nothing resting in the ground: **+596,520.89 $LAZARUS**. A second claim is refused | [NEAR tx](https://testnet.nearblocks.io/txns/3hhniidYH9CpwTwAQP6W3YuWRWRfYgruq7xL22zfcgPe) · [Solana tx](https://solscan.io/tx/WBKMo9EnLGUGXdQSF8rBhwjvWSNetfcNcXE3zXBYpXRHYouvt5v8r3ZM7twNc6hKjkYLoWG9sfH9Z5Wi7JsCiu1?cluster=devnet) |
+
 ## Status
 
 - ✅ Contract deployed to NEAR testnet; MPC derivation and verification proven against live attestations.
 - ✅ Full burial → rite → MPC-signed payout completed on Solana devnet (above).
 - ✅ Ossuary shares proven live: a dead grave was paid from another coin's rising, signed by the ossuary's MPC key (above).
 - ✅ Wallet-signed owner actions (epitaph, payout address, transfer) from the grave page's **Keeper's ledger**, with forgery and replay refused.
+- ✅ **$BONES (NEP-141):** minted at burial, burned at rising, split by balance at each rising, transferable by signature or `ft_transfer`. Proven live end to end (above); claimable from **My graves**.
 - ✅ **NEAR MPC as the coroner:** a plot rose on liquidity and market cap the contract computed from Solana accounts the MPC network read: a real Raydium devnet pool, revived with real trades (above).
 - ✅ **Wallet obituaries:** after a scan, `/obituary/<chain>/<address>` turns the result into a share card, with one headstone per dead coin and a glowing one for each coin whose plot rose.
-- ✅ **Demo video:** `cd web && npx tsx scripts/record-demo.ts` records a captioned nine-scene walkthrough of production with Playwright (`web/demo/necropolis-demo.webm`). With `FFMPEG=<path>` it also writes an X-ready MP4, with the warm-up trimmed. Every scene reads real chain state. The launch thread is in [`docs/launch/x-thread.md`](docs/launch/x-thread.md).
+- ✅ **Demo video:** `cd web && npx tsx scripts/record-demo.ts` records a captioned ten-scene walkthrough of production with Playwright (`web/demo/necropolis-demo.webm`). With `FFMPEG=<path>` it also writes an X-ready MP4, with the warm-up trimmed. Every scene reads real chain state. The launch thread is in [`docs/launch/x-thread.md`](docs/launch/x-thread.md).
 - ✅ **Candles and boards:** any Solana or EVM wallet can light one candle per grave by signing a message (no fee, relayed). The contract verifies the signature and keeps the count. The cemetery shows **Most mourned** and **Biggest graves** boards. A forged candle and a second candle from the same wallet are both refused ([first candle](https://testnet.nearblocks.io/txns/GPDLUnHwyizLC1SLzBa32XR33WBqmxWxTrUkovq1FDir)).
 - ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof, share cards, PWA (manifest, icons, offline shell).
-- ✅ Tests: 48 contract (incl. three live MPC vectors), 33 unit, 9 Playwright smoke (desktop + mobile); `npm run lint` clean.
+- ✅ Tests: 54 contract (incl. three live MPC vectors and the $BONES economics), 34 unit, 9 Playwright smoke (desktop + mobile); `npm run lint` clean.
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
 - ✅ Hosted at https://necropolis-wine.vercel.app (Vercel). A second real burial ran against production: Grave Nº 000001 ($COPIUM) minted 20.7 s after signing ([NEAR tx](https://testnet.nearblocks.io/txns/8XY71n79EGuB3XkkdsNK19ijaE7X1DFc6aw4jCoPUv3s)). Grave NFTs resolve their live art via `base_uri` → `/api/grave/<id>/image.svg`.
 - Mainnet is intentionally closed until the contract is audited.

@@ -152,12 +152,14 @@ export default function How() {
 
       <Section id="economics" eyebrow="4 · Economics" title="Where the upside actually comes from.">
         <p>
-          There is no yield and no new token. The only value in the system is the buried tokens themselves, and they only matter if
-          the coin recovers.
+          There is no yield. The only value in the system is the buried tokens themselves, and they only matter if the coin recovers.
+          Your share of them is a token, <span className="text-ember">$BONES</span>.
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li><span className="text-bone">When a plot rises</span>, each of its graves is raised: 80% of its tokens go back to the owner, 20% (the tithe) to that chain&rsquo;s ossuary address.</li>
-          <li><span className="text-bone">The ossuary</span> is shared, pro rata by weight, by every grave resting in <em>other</em> plots at the moment of rising. 10% of the tithe (2% of the plot) is upkeep for the protocol.</li>
+          <li><span className="text-bone">$BONES</span> (NEP-141, on the registry contract) is minted to you when you bury: one per dollar of ossuary weight. It&rsquo;s burned when your own coin rises, so supply grows as coins die and shrinks as they come back.</li>
+          <li><span className="text-bone">The ossuary</span> of each rising is split among $BONES holders by their balance at that moment, read from on-chain checkpoints. Buying $BONES after a rising gets nothing from it. 10% of the tithe (2% of the plot) is upkeep for the protocol.</li>
+          <li><span className="text-bone">$BONES is transferable:</span> sell your claim on future resurrections without waiting for one. Solana and EVM holders move it by signing a message; NEAR accounts use <code className="font-mono text-xs">ft_transfer</code>.</li>
           <li><span className="text-bone">Weight</span> is a grave&rsquo;s salvage value at burial: amount × 7-day average price, with each plot&rsquo;s total capped at its real liquidity ({fmt(WEIGHT_CAP_MIN_USD)}–{fmt(WEIGHT_CAP_MAX_USD)}). Tokens with a death score under {MIN_DEATH_SCORE_FOR_WEIGHT} get unmarked graves: they can rise, but carry no weight.</li>
           <li><span className="text-bone">Who pays whom:</span> the owners of a risen plot pay 20% of their recovered tokens to everyone else. A single dead bag is a near-worthless lottery ticket; a grave is a share in every resurrection that happens while it rests.</li>
           <li><span className="text-bone">What you give up:</span> there is no early exit, and if the coin never recovers the tokens stay buried.</li>
