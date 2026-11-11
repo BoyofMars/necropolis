@@ -561,6 +561,12 @@ fn claim_bones_pays_the_holders_own_key_once() {
     c.ossuaries.insert(Chain::SolDevnet, "11111111111111111111111111111112".into());
     let fee = || SolanaFee { fee_payer: SOL_OWNER_A.into(), blockhash: SOL_OWNER_A.into() };
     ctx("anyone.testnet", 11_000);
+    let early = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = c.claim_bones(0, b.clone(), None, None, Some(fee()), None);
+    }));
+    assert!(early.is_err(), "no claim before the risen graves are raised: the tithe isn't in the ossuary yet");
+    assert!(!c.get_bones_share(0, b.clone()).unwrap().claimed);
+    c.graves.get_mut(0).unwrap().raised = true; // raise_grave's MPC callback sets this
     let _ = c.claim_bones(0, b.clone(), None, None, Some(fee()), None);
     let p = c.get_payout(format!("bones:0:{}", b)).unwrap();
     assert_eq!(p.recipient, SOL_OWNER_B, "paid to the holder's own Solana key");

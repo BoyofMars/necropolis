@@ -634,6 +634,7 @@ impl Contract {
         require!(share > 0, "this grave's share rounds to zero");
         let claim_key = format!("{}:{}", grave_id, event_id);
         require!(!self.claims.contains_key(&claim_key), "already claimed");
+        require!(self.tithe_collected(&e.plot_id), "raise the risen graves first: that's when the tithe reaches the ossuary");
         let recipient = match recipient {
             Some(r) => {
                 let r = canonical_address(e.chain, &r).unwrap_or_else(|x| fail(x));

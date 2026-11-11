@@ -230,6 +230,15 @@ impl Contract {
         }
     }
 
+    /// Every grave of a risen plot has been raised (its payout signed), so the
+    /// tithe is on its way to the ossuary and shares can be paid from it.
+    pub(crate) fn tithe_collected(&self, plot_id: &str) -> bool {
+        self.plot_graves
+            .get(plot_id)
+            .map(|ids| ids.iter().all(|id| self.graves.get(*id as u32).is_some_and(|g| g.raised)))
+            .unwrap_or(false)
+    }
+
     pub(crate) fn bones_supply_at(&self, event_id: u32) -> Option<u128> {
         raw_get(&event_supply_key(event_id))
     }
@@ -289,8 +298,9 @@ impl Contract {
         raw_set(GENESIS_KEY, &self.events.len());
         for id in 0..self.graves.len() as u64 {
             let g = self.graves.get(id as u32).cloned().unwrap();
-            let resting = self.plots.get(&g.plot_id).is_some_and(|p| matches!(p.state, PlotState::Resting { .. }));
-            if resting && g.weight_usd_e6.0 > 0 {
+            // Resting or stirring: the grave still carries ossuary weight until its plot rises.
+            let active = self.plots.get(&g.plot_id).is_some_and(|p| !matches!(p.state, PlotState::Risen { .. }));
+            if active && g.weight_usd_e6.0 > 0 {
                 self.bones_on_burial(id, &g.owner_id, g.weight_usd_e6.0);
             }
         }
@@ -313,6 +323,7 @@ impl Contract {
         let e = self.events.get(event_id).cloned().unwrap_or_else(|| fail("event not found"));
         let ck = claim_key(event_id, &holder);
         require!(!env::storage_has_key(&ck), "already claimed");
+        require!(self.tithe_collected(&e.plot_id), "raise the risen graves first: that's when the tithe reaches the ossuary");
         let share = self.bones_share(&e, &holder).unwrap_or_else(|r| fail(r));
         let recipient = match recipient {
             Some(r) => {

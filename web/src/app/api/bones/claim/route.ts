@@ -20,6 +20,10 @@ export async function POST(req: Request) {
     if (!share) throw new BurialError("Resurrection event not found.", "NOT_FOUND", 404);
     if (share.claimed) throw new BurialError("Already claimed.", "CLAIMED", 409);
     if (!share.eligible) throw new BurialError(share.reason ?? "Nothing to claim.", "NOT_ELIGIBLE", 400);
+    const ev = (await registry.events()).find((e) => e.id === eventId)!;
+    if (!(await registry.gravesByPlot(ev.plot_id)).every((g) => g.raised)) {
+      throw new BurialError(`$${ev.symbol}'s graves haven't been raised yet. The tithe reaches the ossuary when they are.`, "NOT_RAISED", 409);
+    }
     return ok(await claimBones(eventId, holder));
   } catch (e) {
     return fail(e);
