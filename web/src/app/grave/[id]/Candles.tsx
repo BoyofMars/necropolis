@@ -37,6 +37,14 @@ export function Candles({ graveId }: { graveId: number }) {
     setMsg(null);
     try {
       setBusy("sign");
+      if (mourner === w.near) {
+        // A named NEAR account lights its own candle with a NEAR transaction.
+        const tx = await w.nearWallet.call("light_candle", { grave_id: graveId, mourner, signature: null }, { tgas: 30 });
+        setMsg({ ok: true, text: "Your candle is lit, on NEAR.", tx: tx || undefined });
+        qc.invalidateQueries({ queryKey: ["candles", graveId] });
+        qc.invalidateQueries({ queryKey: ["mourned"] });
+        return;
+      }
       const message = candleMessage(graveId, mourner);
       let signature: string;
       if (w.sol) {

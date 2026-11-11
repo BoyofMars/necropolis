@@ -25,7 +25,8 @@
 3. **Who died in your wallet?** [`/scan`](https://necropolis-wine.vercel.app/scan): paste any Solana or Base wallet and every token gets a death score with its evidence. Then share the obituary.
 4. **A grave sold in the middle of a payout.** Grave X (below) held BONES when $PHOENIX rose, then was sold before anyone claimed. The claim paid the buyer. The seller's attempts to exhume, redirect, claim or re-sell were refused by the contract, and the seller's wallet can no longer open the grave's [crypt](#graves-are-accounts). See [the run](#a-grave-sold-in-the-middle-of-a-payout).
 5. **$BONES, in the open.** [`/bones`](https://necropolis-wine.vercel.app/bones): the rules as the contract states them, the parameters (and the empty list of methods that can change them), and every mint and burn.
-6. **Watch it:** a 90-second captioned walkthrough of production, recorded by [`web/scripts/record-demo.ts`](web/scripts/record-demo.ts).
+6. **Try it yourself, no wallet.** On the live app, **Connect → Use a throwaway wallet**, then [`/bury`](https://necropolis-wine.vercel.app/bury): claim test bags, bury one, and your grave (with its own account and BONES) is minted in about 20 seconds. Already on NEAR? Connect a NEAR wallet to hold graves and BONES in your account.
+7. **Watch it:** a 90-second captioned walkthrough of production, recorded by [`web/scripts/record-demo.ts`](web/scripts/record-demo.ts).
 
 ## $BONES: a token whose supply follows the dead
 
@@ -67,7 +68,7 @@ What the account holds, and so what a sale hands over:
 
 **Per-grave history.** `get_grave_history(id)` records what the grave earned, what it paid out and who held it: buried, BONES minted, earned (per rising, with the recipient), raised, BONES burned, exhumed, changed hands, epitaph. It's on every grave page and in the crypt.
 
-**The crypt.** `/crypt/<id>` is a page only the grave's current holder can open. The wallet signs a short, time-boxed message (no transaction, no fee). The server reads `get_grave` at a fixed final block and checks the signature against that owner, so the moment a grave changes hands the old holder's wallet is turned away. Inside: the holder's statement (earned per coin, BONES in and out, every holder so far) and a CSV of the full history.
+**The crypt.** `/crypt/<id>` is a page only the grave's current holder can open. The wallet signs a short, time-boxed message (no transaction, no fee); a grave held by a named NEAR account signs in with NEP-413, and the server also checks the key is one of that account's full-access keys. The server reads `get_grave` at a fixed final block and checks the signature against that owner, so the moment a grave changes hands the old holder's wallet is turned away. Inside: the holder's statement (earned per coin, BONES in and out, every holder so far) and a CSV of the full history.
 
 **Limits, stated plainly.** Graves buried before the accounts upgrade minted their BONES to their burier, not into the grave; their pages say so. A Solana-family owner whose grave is owed a share on an EVM chain (or the reverse) must set a payout address on that chain before claiming. The holder-gated page is gated by our server's check, the data in it is public on-chain.
 
@@ -237,14 +238,14 @@ What's left on the coroner's word is volume and trader counts, which aren't acco
 
 0. **Judge desk:** `cd web && npm install --legacy-peer-deps && npm run verify` → `10/10 claims hold` (plus a note on the contract key), from public RPCs only. Same checks at `/verify`.
 1. **Contract tests:** `cd contract && cargo test --lib` → 58 tests pass, including `a_sale_in_the_middle_of_a_payout_pays_the_buyer`, `a_claim_made_before_the_sale_stays_with_the_seller` and `bones_rules_are_readable_and_every_mint_and_burn_is_logged`. Three of them reproduce live MPC attestations byte for byte: `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector` and `matches_live_mpc_four_account_market_vector` (a Raydium pool, its vaults and mint read in one request). `mpc_read_market_replaces_reported_numbers_and_binds_the_pool` runs the live pool accounts through the contract's market path.
-2. **Engine tests:** `cd web && npm test` → 35 tests pass: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation and $BONES supply, owner and $BONES messages that match the contract byte for byte, the same four-account MPC vector, and obituary wording.
+2. **Engine tests:** `cd web && npm test` → 36 tests pass, including NEP-413 sign-in verified against near-api-js's own signer: death model, rite, address derivation against live MPC-derived ossuaries, simulation conservation and $BONES supply, owner and $BONES messages that match the contract byte for byte, the same four-account MPC vector, and obituary wording.
 3. **Read the registry:** `near contract call-function as-read-only necropolis.testnet get_ossuary json-args '{"chain":"sol-devnet"}' network-config testnet now` → `3dowrH8pUtmCzKR8DwsK9rHq2gBGqiV8FTzK2tZA45Mx`.
 4. **Use the live app** at https://necropolis-wine.vercel.app (or run it: `cd web && cp .env.example .env.local && npm run dev`), then open:
    - `/scan`: paste any Solana or Base mainnet wallet and see its tokens triaged Dead / Critical / Fading / Alive, each with its reasons.
    - `/token/base/0x47b464eDB8Dc9BC67b5CD4C9310BB87b773845bD` ($NORMIE): the full autopsy, with death score, life chart, evidence table and provenance.
    - `/discover`: the register of 36 crashed coins, only 4 pronounced.
    - `/how#simulation`: the 60-day simulation. `/proof`: re-derive grave addresses in your browser and see live ✓ checks against the MPC network.
-5. **Bury on testnet** (needs the Sexton keys in `.env.local`, funded with devnet SOL / Sepolia ETH): `/bury` → claim test bags → choose a bag → review → sign one transaction → watch finality and MPC verification → grave minted. On the grave page, **Begin séance** → stirring → risen in about 6 minutes → **Raise this grave**: the MPC network signs, and 80% lands back in your wallet.
+5. **Bury on testnet, no wallet needed.** On the live app: **Connect → Use a throwaway wallet** (a Solana devnet key kept in your browser; the relayer pays every fee), then `/bury` → claim test bags → choose a bag → review → sign → watch finality and MPC verification → grave minted, with its BONES in its own account. Open `/crypt/<id>` and sign to enter. (Running your own copy needs the Sexton keys in `.env.local`, funded with devnet SOL / Sepolia ETH.) On the grave page, **Begin séance** → stirring → risen in about 6 minutes → **Raise this grave**: the MPC network signs, and 80% lands back in your wallet.
 
 ## Run locally
 
@@ -426,10 +427,13 @@ Grave 5's on-chain history now reads: buried → BONES minted → changed hands 
 - ✅ **Demo video:** `cd web && npx tsx scripts/record-demo.ts` records a captioned ten-scene walkthrough of production with Playwright (`web/demo/necropolis-demo.webm`). With `FFMPEG=<path>` it also writes an X-ready MP4, with the warm-up trimmed. Every scene reads real chain state. The launch thread is in [`docs/launch/x-thread.md`](docs/launch/x-thread.md).
 - ✅ **Candles and boards:** any Solana or EVM wallet can light one candle per grave by signing a message (no fee, relayed). The contract verifies the signature and keeps the count. The cemetery shows **Most mourned** and **Biggest graves** boards. A forged candle and a second candle from the same wallet are both refused ([first candle](https://testnet.nearblocks.io/txns/GPDLUnHwyizLC1SLzBa32XR33WBqmxWxTrUkovq1FDir)).
 - ✅ App: landing, cemetery, scanner, autopsy, register, burial flow, grave pages with séance/raise/claims, how-it-works, proof, share cards, PWA (manifest, icons, offline shell).
+- ✅ **Try it with no wallet:** on testnet, a one-click throwaway Solana devnet wallet (kept in the browser, key exportable to Phantom) runs the whole flow: test bags, burial, grave, keeper actions, candles, crypt.
+- ✅ **NEAR wallets, optional:** HOT, Intear or MyNearWallet. A named NEAR account can hold graves and $BONES, act as a grave's keeper with its own transactions, send BONES with `ft_transfer`, claim shares to an address it names, light candles, and open its crypt with a NEP-413 signature. Burying still happens from the Solana or Base wallet that holds the bag.
+- ✅ **My graves** shows the BONES inside every grave you hold and what each is owed, with **Claim all**.
 - ✅ **Graves are accounts:** every grave controls a keyless `gN.necropolis.testnet`; $BONES mint into it; claims for it pay the current holder; holder-only crypt; per-grave history. A sale in the middle of a payout ran live with every seller attack refused (above).
 - ✅ **Judge desk:** `/verify` and `npm run verify`, 10/10 live claims re-checked from public RPCs, plus the refused attacks with their transactions.
 - ✅ **$BONES in the open:** `/bones` with `get_bones_rules` (no setters) and `get_bones_log` (every mint and burn).
-- ✅ Tests: 58 contract (incl. three live MPC vectors, the $BONES economics and the sale-mid-payout cases), 35 unit, 9 Playwright smoke (desktop + mobile); `npm run lint` clean.
+- ✅ Tests: 58 contract (incl. three live MPC vectors, the $BONES economics and the sale-mid-payout cases), 36 unit, 9 Playwright smoke (desktop + mobile); `npm run lint` clean.
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton (the code path is built and typechecked).
 - ✅ Hosted at https://necropolis-wine.vercel.app (Vercel). A second real burial ran against production: Grave Nº 000001 ($COPIUM) minted 20.7 s after signing ([NEAR tx](https://testnet.nearblocks.io/txns/8XY71n79EGuB3XkkdsNK19ijaE7X1DFc6aw4jCoPUv3s)). Grave NFTs resolve their live art via `base_uri` → `/api/grave/<id>/image.svg`.
 - Mainnet is intentionally closed until the contract is audited.

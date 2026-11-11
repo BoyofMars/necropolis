@@ -7,6 +7,7 @@
  * holder's wallet stops opening it (their signature no longer matches the
  * owner on chain). Nothing is cached; every visit is checked again.
  */
+import { nep413SignatureValid, type Nep413 } from "@/server/nep413";
 import { CONTRACT_ID, NEAR_RPC, cryptMessage, graveAccountId, registry, type GraveEventJson, type GraveJson } from "@/core/near";
 import { signerKind } from "@/lib/ownerAction";
 import { BurialError } from "@/server/burial";
@@ -16,6 +17,19 @@ import { walletSignatureValid } from "@/server/walletsig";
 export const maxDuration = 20;
 
 const WINDOW_SECS = 600;
+
+/** A NEP-413 signature by one of `accountId`'s full-access keys, right now. */
+async function nep413Valid(accountId: string, n: Nep413, message: string): Promise<boolean> {
+  if (typeof accountId !== "string" || accountId.length < 2 || accountId.length > 64) return false;
+  if (n.accountId !== accountId || !nep413SignatureValid(n, message, CONTRACT_ID)) return false;
+  const key = await rpc<{ permission: unknown }>("query", {
+    request_type: "view_access_key",
+    finality: "final",
+    account_id: accountId,
+    public_key: n.publicKey,
+  }).catch(() => null);
+  return key?.permission === "FullAccess";
+}
 
 async function rpc<T>(method: string, params: unknown): Promise<T> {
   const res = await fetch(NEAR_RPC, {
@@ -62,10 +76,10 @@ function statement(history: GraveEventJson[]) {
 
 export async function POST(req: Request) {
   try {
-    const i = await body<{ graveId: number; issued: number; signature: string; signer?: string }>(req);
+    const i = await body<{ graveId: number; issued: number; signature?: string; signer?: string; nep413?: Nep413 }>(req);
     if (!Number.isInteger(i.graveId) || i.graveId < 0) throw new BurialError("Bad grave id.", "BAD_GRAVE");
     if (!Number.isInteger(i.issued)) throw new BurialError("Bad timestamp.", "BAD_ISSUED");
-    if (typeof i.signature !== "string" || i.signature.length > 200) throw new BurialError("Bad signature.", "BAD_SIGNATURE");
+    if (!i.nep413 && (typeof i.signature !== "string" || i.signature.length > 200)) throw new BurialError("Bad signature.", "BAD_SIGNATURE");
     if (Math.abs(Math.floor(Date.now() / 1000) - i.issued) > WINDOW_SECS) {
       throw new BurialError("That signature has expired. Sign again.", "EXPIRED", 401);
     }
@@ -73,15 +87,29 @@ export async function POST(req: Request) {
     const block = await rpc<{ header: { height: number; hash: string; timestamp_nanosec: string } }>("block", { finality: "final" });
     const g = await graveAt(i.graveId, block.header.height);
     if (!g) throw new BurialError("Grave not found.", "NOT_FOUND", 404);
-    if (signerKind(g.owner_id) === "near") {
-      throw new BurialError("This grave is held by a named NEAR account; its crypt opens from that account.", "NAMED_OWNER", 403);
-    }
-
     const message = cryptMessage(i.graveId, i.issued);
     const history = await registry.graveHistory(i.graveId).catch(() => [] as GraveEventJson[]);
-    if (!(await walletSignatureValid(g.owner_id, message, i.signature))) {
+    const named = signerKind(g.owner_id) === "near";
+    if (named || i.nep413) {
+      // NEAR accounts sign in with NEP-413; the key must be the owner's full-access key now.
+      if (!i.nep413) throw new BurialError("This grave is held by a NEAR account. Connect it with a NEAR wallet to open the crypt.", "NAMED_OWNER", 403);
+      // Valid for the account it claims to be from (any account, not only the owner)?
+      const signed = await nep413Valid(i.nep413.accountId, i.nep413, message);
+      if (!(named && signed && i.nep413.accountId === g.owner_id)) {
+        const heldBefore = signed && history.some((h) => (h.kind === "buried" || h.kind === "transferred") && h.account === i.nep413!.accountId);
+        throw new BurialError(
+          heldBefore
+            ? "This account held the grave once. It was handed on, and the crypt went with it."
+            : signed
+              ? "This NEAR account doesn't hold the grave."
+              : "The signature doesn't match this grave's holder.",
+          "NOT_HOLDER",
+          403,
+        );
+      }
+    } else if (!(await walletSignatureValid(g.owner_id, message, i.signature!))) {
       const signer = typeof i.signer === "string" ? i.signer : "";
-      const theirs = signer && signer !== g.owner_id && (await walletSignatureValid(signer, message, i.signature));
+      const theirs = signer && signer !== g.owner_id && (await walletSignatureValid(signer, message, i.signature!));
       const heldBefore = theirs && history.some((h) => (h.kind === "buried" || h.kind === "transferred") && h.account === signer);
       throw new BurialError(
         heldBefore

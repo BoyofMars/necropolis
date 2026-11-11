@@ -7,6 +7,14 @@ export type OwnerAction = "set_epitaph" | "transfer_grave" | "set_payout_address
 /** Field name in the signed message, exactly as the contract writes it. */
 const MSG_FIELD: Record<OwnerAction, string> = { set_epitaph: "epitaph", transfer_grave: "receiver", set_payout_address: "address", exhume_bones: "amount" };
 
+/** The contract method's argument name for each action's value. */
+export const CONTRACT_ARG: Record<OwnerAction, string> = {
+  set_epitaph: "epitaph",
+  transfer_grave: "receiver_id",
+  set_payout_address: "address",
+  exhume_bones: "amount",
+};
+
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 function solanaKey(v: string): Uint8Array | null {

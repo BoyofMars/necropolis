@@ -7,6 +7,8 @@ import { WagmiProvider, createConfig, http } from "wagmi";
 import { base, baseSepolia } from "wagmi/chains";
 import { injected } from "wagmi/connectors";
 import { NETWORK } from "@/core/near";
+import { BurnerWalletAdapter } from "@/lib/burner";
+import { NearWalletProvider } from "@/lib/nearWallet";
 import { PrefsProvider } from "@/lib/prefs";
 
 const SOLANA_ENDPOINT =
@@ -26,12 +28,16 @@ export function Providers({ children }: { children: ReactNode }) {
         defaultOptions: { queries: { staleTime: 20_000, refetchOnWindowFocus: false, retry: 1 } },
       }),
   );
+  // Testnet only: a throwaway devnet wallet so anyone can try the whole flow without an extension.
+  const [wallets] = useState(() => (NETWORK === "testnet" ? [new BurnerWalletAdapter()] : []));
   return (
     <QueryClientProvider client={qc}>
       <WagmiProvider config={wagmiConfig}>
         <ConnectionProvider endpoint={SOLANA_ENDPOINT}>
-          <WalletProvider wallets={[]} autoConnect>
-            <PrefsProvider>{children}</PrefsProvider>
+          <WalletProvider wallets={wallets} autoConnect>
+            <NearWalletProvider>
+              <PrefsProvider>{children}</PrefsProvider>
+            </NearWalletProvider>
           </WalletProvider>
         </ConnectionProvider>
       </WagmiProvider>
