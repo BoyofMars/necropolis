@@ -102,8 +102,10 @@ export function GraveView({ id }: { id: number }) {
   const checks = plot && latest && terms ? checkObservation(terms, baseOf(plot), latest) : [];
   const prog = plot && terms ? riteProgress(terms, baseOf(plot), stateOf(plot), latest) : null;
   // Risings before $BONES pay per grave; from genesis on they pay BONES holders.
-  const ownedEvents = events.filter((e) => e.plot_id !== g.plot_id && (genesis === null || e.id < genesis));
-  const bonesRisings = genesis === null ? 0 : events.filter((e) => e.id >= genesis && e.plot_id !== g.plot_id).length;
+  // Only risings after this burial can owe it anything.
+  const after = (e: EventJson) => e.plot_id !== g.plot_id && Number(e.at) > Number(g.buried_at);
+  const ownedEvents = events.filter((e) => after(e) && (genesis === null || e.id < genesis));
+  const bonesRisings = genesis === null ? 0 : events.filter((e) => after(e) && e.id >= genesis).length;
   const refresh = () => qc.invalidateQueries({ queryKey: ["grave", id] });
 
   return (
