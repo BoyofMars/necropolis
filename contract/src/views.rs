@@ -13,6 +13,8 @@ pub struct Stats {
     pub total_active_weight_usd_e6: U128,
     pub total_value_buried_usd_e6: U128,
     pub pending_burials_hint: bool,
+    /// $BONES in circulation (6 decimals)
+    pub bones_supply: U128,
 }
 
 #[derive(Serialize)]
@@ -44,6 +46,7 @@ impl Contract {
             total_active_weight_usd_e6: U128(self.total_active_weight),
             total_value_buried_usd_e6: U128(self.total_value_buried_e6),
             pending_burials_hint: false,
+            bones_supply: U128(self.bones_supply()),
         }
     }
 

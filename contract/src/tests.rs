@@ -467,3 +467,142 @@ fn nobody_lights_a_candle_for_a_named_account() {
     ctx("sexton.testnet", 2_100);
     c.light_candle(0, acc("alice.testnet"), None);
 }
+
+// ----------------------------------------------------------------- $BONES
+
+/// Solana address of the ed25519 seed [7; 32] (implicit account CANDLE_MOURNER).
+const SEED7_ORIGIN: &str = "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB";
+/// Its signature over transfer_bones { receiver: alice.testnet, amount: 4000000, nonce: 0 }.
+const SEED7_TRANSFER_SIG: &str = "3LnC1kEqT2LT6FJiFPbsvgKbcZvEENYYLeFHVEP3BbHinxE2s5EkvQTbV6Azda5Bxed4GNYTnXEwNjNphYXyZNmR";
+
+fn implicit(origin: &str) -> AccountId {
+    auth::implicit_owner(origin, true).unwrap()
+}
+
+fn ctx_yocto(predecessor: &str, ts_secs: u64) {
+    let mut b = VMContextBuilder::new();
+    b.current_account_id(acc("necropolis.testnet"))
+        .predecessor_account_id(acc(predecessor))
+        .block_timestamp(ts_secs * 1_000_000_000)
+        .attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(b.build());
+}
+
+fn rise(c: &mut Contract, mint: &str, start: u64) {
+    let pid = plot_id(Chain::SolDevnet, mint);
+    for t in [start, start + 150, start + 300, start + 400] {
+        ctx("coroner.testnet", t);
+        c.observe(pid.clone(), alive(t));
+    }
+}
+
+/// $BONES live from an empty cemetery: A buries in plot X (10 BONES), B in plot Y (30 BONES).
+fn bones_cemetery() -> (Contract, AccountId, AccountId) {
+    let mut c = contract();
+    ctx("owner.testnet", 1_500);
+    c.bones_genesis();
+    ctx("necropolis.testnet", 2_000);
+    c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000_000, 10_000_000, true));
+    c.inter(pending(MINT_OTHER, SOL_OWNER_B, 2, 1_000, 30_000_000, true));
+    (c, implicit(SOL_OWNER_A), implicit(SOL_OWNER_B))
+}
+
+#[test]
+fn genesis_mints_bones_for_resting_weighted_graves_only() {
+    let mut c = contract();
+    ctx("necropolis.testnet", 2_000);
+    c.inter(pending(MINT_DEAD, SOL_OWNER_A, 1, 1_000_000, 10_000_000, true));
+    c.inter(pending(MINT_OTHER, SOL_OWNER_B, 2, 1_000, 30_000_000, true));
+    rise(&mut c, MINT_DEAD, 10_000); // a rising before $BONES
+    assert_eq!(c.ft_total_supply().0, 0);
+    ctx("owner.testnet", 11_000);
+    assert_eq!(c.bones_genesis().0, 30_000_000, "only the grave still resting");
+    assert_eq!(c.ft_balance_of(implicit(SOL_OWNER_B)).0, 30_000_000);
+    assert_eq!(c.get_bones_genesis(), Some(1));
+    assert!(c.get_share(1, 0).unwrap().eligible, "the earlier rising still pays per grave");
+    assert_eq!(c.ft_metadata().symbol, "BONES");
+    assert_eq!(c.ft_metadata().decimals, 6);
+    assert!(get_logs().iter().any(|l| l.contains("\"nep141\"") && l.contains("ft_mint")));
+}
+
+#[test]
+fn bones_grow_with_deaths_shrink_with_risings_and_pay_holders_at_the_rising() {
+    let (mut c, a, b) = bones_cemetery();
+    assert_eq!(c.ft_total_supply().0, 40_000_000);
+    // B hands 10 BONES to alice before X rises
+    ctx_yocto(b.as_str(), 3_000);
+    c.ft_transfer(acc("alice.testnet"), U128(10_000_000), None);
+    rise(&mut c, MINT_DEAD, 10_000);
+    // X rose: the BONES its burier still held are burned
+    assert_eq!(c.ft_balance_of(a.clone()).0, 0);
+    assert_eq!(c.get_grave_bones(0).unwrap().burned.0, 10_000_000);
+    assert_eq!(c.ft_total_supply().0, 30_000_000);
+    let e = c.get_events().pop().unwrap();
+    assert_eq!(e.pool_weight_usd_e6.0, 30_000_000);
+    assert_eq!(e.pool_amount.0, 180_000); // 20% of 1,000,000 less 10% upkeep
+    // alice sells after the rising: her claim on it stays hers
+    ctx_yocto("alice.testnet", 12_000);
+    c.ft_transfer(b.clone(), U128(10_000_000), None);
+    assert_eq!(c.get_bones_share(e.id, b.clone()).unwrap().amount.unwrap().0, 120_000);
+    assert_eq!(c.get_bones_share(e.id, acc("alice.testnet")).unwrap().amount.unwrap().0, 60_000);
+    assert!(!c.get_bones_share(e.id, a.clone()).unwrap().eligible);
+    assert!(!c.get_share(1, e.id).unwrap().eligible, "per-grave claims are closed for BONES-era risings");
+    // burying after the rising mints BONES but can't skim this pool
+    ctx("necropolis.testnet", 13_000);
+    c.inter(pending(MINT_OTHER, SOL_OWNER_A, 3, 1_000, 5_000_000, false));
+    assert_eq!(c.ft_balance_of(a.clone()).0, 5_000_000);
+    assert_eq!(c.get_bones_share(e.id, a).unwrap().reason.as_deref(), Some("held no BONES at the rising"));
+}
+
+#[test]
+fn claim_bones_pays_the_holders_own_key_once() {
+    let (mut c, _a, b) = bones_cemetery();
+    rise(&mut c, MINT_DEAD, 10_000);
+    c.ossuaries.insert(Chain::SolDevnet, "11111111111111111111111111111112".into());
+    let fee = || SolanaFee { fee_payer: SOL_OWNER_A.into(), blockhash: SOL_OWNER_A.into() };
+    ctx("anyone.testnet", 11_000);
+    let _ = c.claim_bones(0, b.clone(), None, None, Some(fee()), None);
+    let p = c.get_payout(format!("bones:0:{}", b)).unwrap();
+    assert_eq!(p.recipient, SOL_OWNER_B, "paid to the holder's own Solana key");
+    assert_eq!(p.amounts[0].0, 180_000, "the only holder takes the whole pool");
+    assert!(c.get_bones_share(0, b.clone()).unwrap().claimed);
+    let again = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = c.claim_bones(0, b.clone(), None, None, Some(fee()), None);
+    }));
+    assert!(again.is_err(), "a share is claimed once");
+}
+
+#[test]
+fn wallet_holders_move_bones_with_a_signature() {
+    let mut c = contract();
+    ctx("owner.testnet", 1_500);
+    c.bones_genesis();
+    ctx("necropolis.testnet", 2_000);
+    c.inter(pending(MINT_DEAD, SEED7_ORIGIN, 1, 1_000, 10_000_000, true));
+    let holder = acc(CANDLE_MOURNER);
+    assert_eq!(c.ft_balance_of(holder.clone()).0, 10_000_000);
+    ctx("sexton.testnet", 3_000); // the relayer pays; the signature is the holder's
+    c.bones_transfer(holder.clone(), acc("alice.testnet"), U128(4_000_000), Some(OwnerAuth { nonce: 0, signature: SEED7_TRANSFER_SIG.into() }));
+    assert_eq!(c.ft_balance_of(acc("alice.testnet")).0, 4_000_000);
+    assert_eq!(c.ft_balance_of(holder.clone()).0, 6_000_000);
+    let replay = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        c.bones_transfer(holder.clone(), acc("alice.testnet"), U128(4_000_000), Some(OwnerAuth { nonce: 0, signature: SEED7_TRANSFER_SIG.into() }));
+    }));
+    assert!(replay.is_err(), "a signature moves BONES once");
+}
+
+#[test]
+#[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
+fn ft_transfer_needs_one_yocto() {
+    let (mut c, _a, b) = bones_cemetery();
+    ctx(b.as_str(), 3_000);
+    c.ft_transfer(acc("alice.testnet"), U128(1), None);
+}
+
+#[test]
+#[should_panic(expected = "not enough BONES")]
+fn nobody_spends_bones_they_do_not_have() {
+    let (mut c, _a, _b) = bones_cemetery();
+    ctx_yocto("alice.testnet", 3_000);
+    c.ft_transfer(acc("bob.testnet"), U128(1), None);
+}

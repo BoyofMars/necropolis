@@ -23,6 +23,7 @@ use near_sdk::{
 };
 
 pub mod auth;
+pub mod bones;
 pub mod events;
 pub mod evm;
 pub mod foreign;
@@ -676,6 +677,8 @@ impl Contract {
                     // Signing failed or timed out. Release the claim so it can be retried.
                     if let Some(rest) = key.strip_prefix("share:") {
                         self.claims.remove(&rest.to_string());
+                    } else if let Some(rest) = key.strip_prefix("bones:") {
+                        bones::release_bones_claim(rest);
                     } else if key.starts_with("upkeep:") {
                         self.claims.remove(&key);
                     }
@@ -1088,6 +1091,7 @@ impl Contract {
         pg.push(id);
         self.plot_graves.insert(pid.clone(), pg);
         events::nft_mint(&owner_id, id);
+        self.bones_on_burial(id, &owner_id, weight);
         events::emit(
             "burial",
             json!({
@@ -1121,7 +1125,17 @@ impl Contract {
         plot.last_observation = Some(o.clone());
         let transition = format!("{:?}", tr);
         if tr == rite::Transition::Risen {
-            let pool_weight = self.total_active_weight.saturating_sub(plot.total_weight_usd_e6.0 as u128);
+            // Since $BONES, the pool is split by BONES held at this moment, after
+            // burning what the risen plot's buriers still hold.
+            let bones = self.bones_era(event_id);
+            if bones {
+                self.bones_on_rising(&pid);
+            }
+            let legacy_weight = self.total_active_weight.saturating_sub(plot.total_weight_usd_e6.0 as u128);
+            let pool_weight = if bones { self.bones_supply() } else { legacy_weight };
+            if bones {
+                self.record_bones_supply_at(event_id, pool_weight);
+            }
             let tithe = plot.total_tithe.0;
             let (pool, upkeep) = if pool_weight == 0 {
                 (0, tithe)
@@ -1129,7 +1143,7 @@ impl Contract {
                 let upkeep = tithe * self.config.upkeep_bps as u128 / 10_000;
                 (tithe - upkeep, upkeep)
             };
-            self.total_active_weight = pool_weight;
+            self.total_active_weight = legacy_weight;
             let at = match &state {
                 PlotState::Risen { at, .. } => *at,
                 _ => unreachable!(),
@@ -1158,6 +1172,9 @@ impl Contract {
 
     /// Share of event `e` owed to grave `g`, or why it is not eligible.
     pub(crate) fn share_of(&self, g: &Grave, e: &ResurrectionEvent) -> Result<u128, &'static str> {
+        if self.bones_era(e.id) {
+            return Err("since $BONES, risings pay BONES holders (claim_bones)");
+        }
         if g.plot_id == e.plot_id {
             return Err("a grave does not share in its own plot's rising");
         }
