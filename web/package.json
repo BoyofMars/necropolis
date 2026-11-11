@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify": "tsx scripts/verify.ts"
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",

@@ -1,0 +1,4 @@
+{
+  "about": "Attacks sent straight to necropolis.testnet by scripts/e2e-accounts.ts, bypassing our server's own checks. Each tx failed with the contract's error.",
+  "refusals": []
+}

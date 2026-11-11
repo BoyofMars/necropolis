@@ -148,7 +148,8 @@ export function Footer() {
             {
               title: "Verify",
               links: [
-                ["Proof page", "/proof"],
+                ["Judge desk: verify every claim", "/verify"],
+                ["Re-derive an address", "/proof"],
                 [`${CONTRACT_ID} ↗`, nearAccountUrl(CONTRACT_ID)],
                 [`${MPC_SIGNER} ↗`, nearAccountUrl(MPC_SIGNER)],
                 ["Source on GitHub ↗", BRAND.repo],

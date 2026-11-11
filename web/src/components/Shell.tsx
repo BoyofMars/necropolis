@@ -25,7 +25,7 @@ const NAV = [
   { href: "/scan", label: "Scan" },
   { href: "/how", label: "How it works" },
   { href: "/bones", label: "$BONES" },
-  { href: "/proof", label: "Proof" },
+  { href: "/verify", label: "Verify" },
 ];
 
 export function Header() {
