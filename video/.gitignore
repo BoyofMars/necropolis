@@ -1,0 +1,9 @@
+node_modules/
+footage-raw/
+out/
+dist/
+render.html
+public/meta.json
+public/music.wav
+public/music.mka
+public/footage/

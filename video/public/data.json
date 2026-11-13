@@ -1,0 +1,17 @@
+{
+  "grave": {
+    "id": 9,
+    "symbol": "COPIUM",
+    "amount": "1,300,000",
+    "chain": "Solana devnet",
+    "graveAddress": "DbSJkc1qM7ZwG2N7gZkFtFynZKoZn6ej7CAFoCL6fwxk",
+    "bones": 96.56,
+    "account": "g9.necropolis.testnet",
+    "owner": "3497cda17d0c8f0202c489b40165bf0965fb57bc0ca9888310dd4cba332ebc84",
+    "depositTx": "qxLWAknwpD4KHeKPniMZx88SCfToisNQukU3pxtxtBkUAu7G1y15z8G4sepFwbR5FD2VBKvUiyszoT6fgavftn8",
+    "proofHash": "e60c23b67ffd3979600b4e0744aaa376319f2236f1eabc1cdaf2ee03ed45bf20",
+    "epitaph": "Here lies my conviction. Again.",
+    "secondsToMint": 18.2
+  },
+  "stats": { "graves": 10, "bonesSupply": 482.8, "buried": 774.62 }
+}
