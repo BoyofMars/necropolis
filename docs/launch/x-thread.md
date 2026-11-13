@@ -1,16 +1,23 @@
 # Launch thread for X
 
-Ready to paste, one post per block. Every post fits in 280 characters (X counts each link as 23).
+Seven posts, each under 280 characters (X counts every link as 23). Post them as one thread: post 1, then each next post as a reply to the one before.
 
-**Post 1 is the demo post.** It's the link the submission form asks for, so it carries what the rules require: it says the project was built at NEAR HACKATHON, tags @NEARProtocol and #NEARHackathon, and has the demo video attached. Attach an obituary card (`/api/og/obituary/<chain>/<wallet>`) to post 5 if you like.
+**Post 1 is the demo post.** Its link is the one the submission form asks for, so it carries everything the rules require (HACKATHON.md, "The demo post"):
+- it says the project was built at NEAR HACKATHON;
+- it tags @NEARProtocol and #NEARHackathon;
+- it has the demo video attached.
+
+@NearLegion and @NearBuilders are optional extra reach; they're in the last post.
+
+The images are frames from the demo video (`video/`, rendered at 1920×1080). File names below start with the post number.
 
 ---
 
-**1/**
+**1/** · attach the demo video
 
 Every memecoin you aped is still in your wallet. Dead.
 
-So I built them a graveyard at NEAR HACKATHON: bury a dead bag on its own chain, Solana or Base. If the coin ever genuinely comes back, you get 80% of it back.
+So I built them a graveyard at NEAR HACKATHON: bury a dead bag on its own chain. If it ever truly comes back, you get 80% back.
 
 @NEARProtocol #NEARHackathon
 
@@ -18,56 +25,63 @@ https://necropolis-wine.vercel.app
 
 ---
 
-**2/**
+**2/** · images `2a-no-bridge`, `2b-near-checks-the-deposit`
 
-No bridge. The bag goes to a grave address on its native chain that only a NEAR contract can sign for, through NEAR Chain Signatures.
+No bridge. Nothing wrapped.
 
-Before a grave is minted, NEAR's MPC network reads the deposit on Solana or Base itself.
+Your bag goes to an address on Solana or Base that only a NEAR contract can sign for, through Chain Signatures. Nobody holds that key. Not even me.
 
----
-
-**3/**
-
-"Comes back" isn't vibes. The contract runs a rite with terms frozen at burial: liquidity, volume, traders, market cap and wash-trading caps, held for 14 days.
-
-NEAR MPC reads the pool on Solana and the contract computes the market itself. The coroner can't fake it.
+Before a grave is minted, NEAR's MPC network reads the deposit on-chain itself.
 
 ---
 
-**4/**
+**3/** · images `3a-near-reads-the-market`, `3b-risen-80-20`
 
-The other 20% goes to the ossuary. Burying mints $BONES (NEP-141), your share of it: minted as coins die, burned as they rise.
+"Comes back" isn't vibes.
 
-On testnet, a $COPIUM grave that never rose has been paid by three other coins' risings.
+Liquidity, volume, traders, market cap and wash-trading caps, held for 14 days. NEAR MPC reads liquidity and market cap straight from the pool, so they're nobody's word.
 
----
-
-**5/**
-
-Every grave is an NFT that controls its own NEAR account, with no keys. Its $BONES and unpaid earnings live inside.
-
-Sell it in the middle of a payout and the buyer gets paid. On testnet, the seller's four attempts to keep the money were refused.
+Then the contract pays out: 80% back to you, 20% to the cemetery.
 
 ---
 
-**6/**
+**4/** · image `4-bones`
 
-Scan any wallet: every token gets a death score, with the evidence.
+That 20% goes to $BONES holders.
 
-Then share your wallet's obituary, and light a candle on a grave, signed by your Solana or EVM wallet and kept on NEAR.
+Burying mints $BONES (NEP-141). When a coin rises, its BONES burn and everyone holding BONES gets a share.
+
+Live on testnet: a $COPIUM grave that never rose has been paid by three other coins' comebacks.
 
 ---
 
-**7/**
+**5/** · images `5a-grave-account-live-app`, `5b-refused`, `5c-buyer-paid`
 
-Don't trust it, check it: 11 claims re-checked live from NEAR, Solana and Base. The contract has no keys left.
-https://necropolis-wine.vercel.app/verify
+Every grave is an NFT that owns its own NEAR account, with zero keys.
 
-No wallet? Connect → Use a throwaway wallet, and bury a test bag.
+Sell it mid-payout and the money goes with the NFT. On testnet, the seller tried four ways to keep it. All four refused. The buyer got 540,000 $PHOENIX.
 
-Would you bury yours?
+---
 
-https://github.com/BoyofMars/necropolis
+**6/** · images `6a-11-of-11`, `6b-contract-locked`
+
+Don't trust me. Check.
+
+https://necropolis-wine.vercel.app/verify re-checks 11 claims live from NEAR, Solana and Base: vaults, deposits, payouts, $BONES supply. 11/11.
+
+The contract is locked too: zero access keys. Nobody can change it. Not even me.
+
+---
+
+**7/** · image `7-try-it-now`
+
+Try it, no wallet needed: Connect → "Use a throwaway wallet" → bury a test bag. Your grave is minted on NEAR testnet.
+
+Open source: https://github.com/BoyofMars/necropolis
+
+What's the deadest coin in your wallet?
+
+@NearLegion @NearBuilders
 
 ---
 
