@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 720" width="600" height="720">
+<defs>
+  <radialGradient id="sky" cx="50%" cy="20%" r="80%"><stop offset="0" stop-color="#1a1815"/><stop offset="1" stop-color="#0c0b0a"/></radialGradient>
+  <linearGradient id="stone" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#24211d"/><stop offset="1" stop-color="#15130f"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0"/></filter>
+</defs>
+<rect width="600" height="720" fill="url(#sky)"/>
+
+<path d="M110 640 V240 A190 190 0 0 1 490 240 V640 Z" fill="url(#stone)" stroke="#46413a" stroke-width="3"/>
+<path d="M110 640 V240 A190 190 0 0 1 490 240 V640 Z" filter="url(#grain)"/>
+
+
+<text x="300" y="168" text-anchor="middle" font-family="Georgia, serif" font-size="18" letter-spacing="6" fill="#8e8676">HERE LIES</text>
+<text x="300" y="250" text-anchor="middle" font-family="Georgia, serif" font-size="58" font-weight="600" fill="#d9d1c0">$COPIUM</text>
+<text x="300" y="300" text-anchor="middle" font-family="Georgia, serif" font-size="24" fill="#d9d1c0">Nº 000009</text>
+<line x1="210" x2="390" y1="330" y2="330" stroke="#8e8676" stroke-opacity=".5"/>
+<text x="300" y="372" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#d9d1c0">1.30M tokens</text>
+<text x="300" y="404" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" letter-spacing="3" fill="#8e8676">SOLANA · 2026-11-13</text>
+<text x="300" y="468" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="20" fill="#8e8676">“Here lies my conviction.</text><text x="300" y="494" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="20" fill="#8e8676">Again.”</text>
+<path d="M160 560 h280" stroke="#4a443b" stroke-width="2" fill="none"/>
+<rect x="0" y="640" width="600" height="80" fill="#0c0b0a"/>
+<path d="M0 640 Q150 628 300 640 T600 640 V660 H0Z" fill="#14120f"/>
+<text x="300" y="690" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15" letter-spacing="4" fill="#6b6458">FRESHLY BURIED</text>
+</svg>

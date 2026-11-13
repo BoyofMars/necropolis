@@ -1,0 +1,31 @@
+{
+  "name": "necropolis-video",
+  "private": true,
+  "description": "The Necropolis demo video, made in code: real footage of the live app, React scenes rendered frame by frame, and a soundtrack synthesised in TypeScript.",
+  "scripts": {
+    "music": "tsx music/compose.ts && tsx scripts/wav2mka.ts",
+    "build": "tsx scripts/build.ts",
+    "stills": "tsx scripts/render.ts --stills",
+    "sheet": "tsx scripts/sheet.ts",
+    "render": "tsx scripts/build.ts && tsx scripts/render.ts",
+    "mux": "powershell -NoProfile -File scripts/mux.ps1",
+    "sync": "tsx scripts/sync.ts out/necropolis.mp4",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/cormorant-garamond": "5.3.0",
+    "@fontsource/hanken-grotesk": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "playwright-core": "1.65.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "esbuild": "0.28.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}
