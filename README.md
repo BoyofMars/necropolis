@@ -13,6 +13,7 @@ Built at **NEAR HACKATHON** (November 2026) for **Memecoins With Mechanics**, **
 | | |
 |---|---|
 | **Live app** | **https://necropolis-wine.vercel.app** (testnet). Try it with no wallet: Connect → *Use a throwaway wallet* |
+| **Demo video** | **[110-second demo on X](https://x.com/theboyofmars/status/2121242115124392330)**: a real burial on production, then why NEAR. Made in code: [`video/`](video) |
 | **Contract** | [`necropolis.testnet`](https://testnet.nearblocks.io/address/necropolis.testnet) (NEAR testnet). **Locked:** the account has no access keys ([DeleteKey tx](https://testnet.nearblocks.io/txns/BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB)), so nobody, us included, can change its code or its settings |
 | **MPC signer** | [`v1.signer-prod.testnet`](https://testnet.nearblocks.io/address/v1.signer-prod.testnet) (Chain Signatures + foreign-chain verification) |
 | **Origin chains** | Solana devnet, Base Sepolia (mainnet chains are coded but closed until an audit) |
@@ -43,7 +44,7 @@ Built at **NEAR HACKATHON** (November 2026) for **Memecoins With Mechanics**, **
 4. **Who died in your wallet?** [`/scan`](https://necropolis-wine.vercel.app/scan): paste any Solana or Base wallet and every token gets a death score with its evidence. Then share the obituary.
 5. **A grave sold in the middle of a payout.** Grave 5 (below) held BONES when $PHOENIX rose, then was sold before anyone claimed. The claim paid the buyer. The seller's attempts to exhume, redirect, claim or re-sell were refused by the contract, and the seller's wallet can no longer open the grave's [crypt](#graves-are-accounts). See [the run](#a-grave-sold-in-the-middle-of-a-payout).
 6. **$BONES, in the open.** [`/bones`](https://necropolis-wine.vercel.app/bones): the rules as the contract states them, the parameters (and the empty list of methods that can change them), and every mint and burn.
-7. **The demo video is code too.** [`video/`](video) builds the 110-second launch video from real production footage (a live burial, minted as grave 9 in 18 s), React scenes rendered frame by frame, and a soundtrack synthesised in TypeScript. No stock footage, no mock-ups.
+7. **Watch the demo, then see how it was made.** The [110-second demo on X](https://x.com/theboyofmars/status/2121242115124392330) is code too: [`video/`](video) builds it from real production footage (a live burial, minted as grave 9 in 18 s), React scenes rendered frame by frame, and a soundtrack synthesised in TypeScript. No stock footage, no mock-ups.
 8. **More to open:** [`/token/base/0x47b4…45bD`](https://necropolis-wine.vercel.app/token/base/0x47b464eDB8Dc9BC67b5CD4C9310BB87b773845bD) is the full autopsy of a real dead Base memecoin ($NORMIE); [`/discover`](https://necropolis-wine.vercel.app/discover) is a register of 36 famous crashed coins, only 4 pronounced dead; [`/how#simulation`](https://necropolis-wine.vercel.app/how#simulation) runs the 60-day simulation; [`/proof`](https://necropolis-wine.vercel.app/proof) re-derives grave addresses in your browser against the MPC network.
 
 ## For AI reviewers

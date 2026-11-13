@@ -66,4 +66,5 @@ Test names worth reading (`contract/src/tests.rs`): `a_sale_in_the_middle_of_a_p
 ## Live
 
 - App: https://necropolis-wine.vercel.app (testnet). Judge desk: `/verify`.
+- Demo video: https://x.com/theboyofmars/status/2121242115124392330
 - Contract: `necropolis.testnet` (locked, 0 access keys). MPC signer: `v1.signer-prod.testnet`.

@@ -1,6 +1,6 @@
 # The demo video, made in code
 
-A 110-second, 1080p60 video of Necropolis, built from the live app and real chain state. There is no stock footage, no mock-up and no licensed music.
+A 110-second, 1080p60 video of Necropolis, built from the live app and real chain state. **Watch it: [the demo post on X](https://x.com/theboyofmars/status/2121242115124392330).** There is no stock footage, no mock-up and no licensed music.
 
 | Part | How |
 |---|---|
