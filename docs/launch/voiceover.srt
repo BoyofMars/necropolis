@@ -1,0 +1,160 @@
+1
+00:00:00,300 --> 00:00:03,600
+Every memecoin you ever aped... is still sitting in your wallet.
+
+2
+00:00:04,050 --> 00:00:04,900
+Dead.
+
+3
+00:00:06,150 --> 00:00:07,850
+Millions of them. Last year alone.
+
+4
+00:00:08,100 --> 00:00:09,600
+Everyone treats them like trash.
+
+5
+00:00:10,400 --> 00:00:12,000
+So I built them a graveyard.
+
+6
+00:00:12,200 --> 00:00:13,800
+Necropolis. On Solana and Base.
+
+7
+00:00:14,050 --> 00:00:15,950
+Bury the bag. On its own chain.
+
+8
+00:00:16,050 --> 00:00:17,900
+Comes back? Eighty percent is yours.
+
+9
+00:00:18,200 --> 00:00:22,200
+Let's bury one, live. No wallet? One click makes you a throwaway.
+
+10
+00:00:22,600 --> 00:00:25,800
+Grab test bags. Pick a dead coin. Bury all of it.
+
+11
+00:00:26,100 --> 00:00:31,200
+One screen shows you the whole deal. Add an epitaph... and sign. One signature, that's it.
+
+12
+00:00:31,600 --> 00:00:35,600
+Now NEAR's MPC network reads the deposit straight from Solana. No bridge.
+
+13
+00:00:36,200 --> 00:00:37,900
+Eighteen seconds. Grave number nine.
+
+14
+00:00:38,100 --> 00:00:39,900
+An NFT, with its own NEAR account.
+
+15
+00:00:40,200 --> 00:00:44,800
+Why NEAR? Your bag sits at an address only the contract can sign for.
+
+16
+00:00:45,200 --> 00:00:49,800
+NEAR's MPC network checks the deposit itself. No oracle. No trust in us.
+
+17
+00:00:50,200 --> 00:00:54,800
+It reads the market too: liquidity and market cap, straight from the pool.
+
+18
+00:00:55,200 --> 00:00:59,800
+And you never need a NEAR wallet. Your Solana or EVM key already is one.
+
+19
+00:01:00,200 --> 00:01:03,600
+A pump isn't a pulse. It has to hold for fourteen days.
+
+20
+00:01:04,050 --> 00:01:04,800
+Risen.
+
+21
+00:01:05,100 --> 00:01:07,900
+Eighty percent back to you. Twenty to the cemetery.
+
+22
+00:01:08,200 --> 00:01:09,900
+Burying mints BONES into your grave.
+
+23
+00:01:10,200 --> 00:01:11,900
+A rising burns them.
+
+24
+00:01:12,100 --> 00:01:13,800
+Every rising pays the holders.
+
+25
+00:01:14,000 --> 00:01:15,900
+No admin key. All public.
+
+26
+00:01:16,200 --> 00:01:17,900
+Every grave is its own account.
+
+27
+00:01:18,100 --> 00:01:19,800
+What if you sell it mid-payout?
+
+28
+00:01:22,000 --> 00:01:23,900
+Every trick refused. The buyer gets paid.
+
+29
+00:01:24,200 --> 00:01:25,800
+Don't trust us. Check.
+
+30
+00:01:26,000 --> 00:01:27,800
+Eleven claims, re-checked live.
+
+31
+00:01:28,600 --> 00:01:31,600
+The contract's locked. Nobody can change it. Not even us.
+
+32
+00:01:32,100 --> 00:01:32,950
+Scan any wallet.
+
+33
+00:01:33,100 --> 00:01:33,950
+Share its obituary.
+
+34
+00:01:34,100 --> 00:01:34,950
+Light a candle.
+
+35
+00:01:35,100 --> 00:01:35,950
+Enter your crypt.
+
+36
+00:01:36,100 --> 00:01:36,950
+Walk the cemetery.
+
+37
+00:01:37,100 --> 00:01:37,950
+On your phone.
+
+38
+00:01:38,200 --> 00:01:41,500
+Try it right now. No wallet needed. Link's below.
+
+39
+00:01:42,100 --> 00:01:45,000
+Built at NEAR HACKATHON. Open source, and every claim checkable.
+
+40
+00:01:46,350 --> 00:01:47,950
+Bury the bag. Keep the upside.
+
