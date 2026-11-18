@@ -263,16 +263,23 @@ async function jupiterHoldings(owner: string): Promise<Holding[]> {
   return out;
 }
 
-export async function solanaHoldings(chain: "sol" | "sol-devnet", owner: string): Promise<Holding[]> {
+/**
+ * `fresh`: skip the in-memory cache (and on Solana read at "confirmed"), for
+ * flows that just changed the wallet, like the burial page after the faucet.
+ */
+export type HoldingsOptions = { fresh?: boolean };
+const maybeCached = <T>(fresh: boolean | undefined, key: string, ttlMs: number, fn: () => Promise<T>) => (fresh ? fn() : cached(key, ttlMs, fn));
+
+export async function solanaHoldings(chain: "sol" | "sol-devnet", owner: string, opts: HoldingsOptions = {}): Promise<Holding[]> {
   try {
-    return await solanaHoldingsRpc(chain, owner);
+    return await solanaHoldingsRpc(chain, owner, opts);
   } catch (e) {
     if (chain !== "sol") throw e;
     return jupiterHoldings(owner);
   }
 }
 
-async function solanaHoldingsRpc(chain: "sol" | "sol-devnet", owner: string): Promise<Holding[]> {
+async function solanaHoldingsRpc(chain: "sol" | "sol-devnet", owner: string, { fresh }: HoldingsOptions): Promise<Holding[]> {
   const url = SOL_RPC[chain];
   const programs = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
   type Acc = {
@@ -280,8 +287,9 @@ async function solanaHoldingsRpc(chain: "sol" | "sol-devnet", owner: string): Pr
   };
   const all: Holding[] = [];
   for (const programId of programs) {
-    const res = await cached(`solbal:${chain}:${owner}:${programId}`, 20_000, () =>
-      rpc<{ value: Acc[] }>("solana-rpc", url, "getTokenAccountsByOwner", [owner, { programId }, { encoding: "jsonParsed" }]),
+    const config = fresh ? { encoding: "jsonParsed", commitment: "confirmed" } : { encoding: "jsonParsed" };
+    const res = await maybeCached(fresh, `solbal:${chain}:${owner}:${programId}`, 20_000, () =>
+      rpc<{ value: Acc[] }>("solana-rpc", url, "getTokenAccountsByOwner", [owner, { programId }, config]),
     );
     for (const a of res.value) {
       const info = a.account.data.parsed.info;
@@ -324,25 +332,25 @@ interface BlockscoutTokenItem {
  * Base balances: keyless Blockscout first; if Cloudflare challenges us, fall
  * back to Blockscout PRO or Alchemy when a (free-tier) key is configured.
  */
-export async function baseHoldings(chain: "base" | "base-sepolia", owner: string): Promise<Holding[]> {
+export async function baseHoldings(chain: "base" | "base-sepolia", owner: string, opts: HoldingsOptions = {}): Promise<Holding[]> {
   try {
-    return await blockscoutHoldings(chain, owner);
+    return await blockscoutHoldings(chain, owner, undefined, opts);
   } catch (e) {
     if (process.env.BLOCKSCOUT_API_KEY) {
       try {
-        return await blockscoutHoldings(chain, owner, process.env.BLOCKSCOUT_API_KEY);
+        return await blockscoutHoldings(chain, owner, process.env.BLOCKSCOUT_API_KEY, opts);
       } catch {
         /* fall through */
       }
     }
-    if (process.env.ALCHEMY_API_KEY) return alchemyHoldings(chain, owner, process.env.ALCHEMY_API_KEY);
+    if (process.env.ALCHEMY_API_KEY) return alchemyHoldings(chain, owner, process.env.ALCHEMY_API_KEY, opts);
     throw e;
   }
 }
 
-async function alchemyHoldings(chain: "base" | "base-sepolia", owner: string, key: string): Promise<Holding[]> {
+async function alchemyHoldings(chain: "base" | "base-sepolia", owner: string, key: string, { fresh }: HoldingsOptions = {}): Promise<Holding[]> {
   const url = `https://${chain === "base" ? "base-mainnet" : "base-sepolia"}.g.alchemy.com/v2/${key}`;
-  const bal = await cached(`alc:${chain}:${owner}`, 30_000, () =>
+  const bal = await maybeCached(fresh, `alc:${chain}:${owner}`, 30_000, () =>
     rpc<{ tokenBalances: { contractAddress: string; tokenBalance: string }[] }>("alchemy", url, "alchemy_getTokenBalances", [owner, "erc20"]),
   );
   const nonzero = bal.tokenBalances.filter((b) => b.tokenBalance && BigInt(b.tokenBalance) > 0n).slice(0, 80);
@@ -369,7 +377,7 @@ async function alchemyHoldings(chain: "base" | "base-sepolia", owner: string, ke
   });
 }
 
-async function blockscoutHoldings(chain: "base" | "base-sepolia", owner: string, proKey?: string): Promise<Holding[]> {
+async function blockscoutHoldings(chain: "base" | "base-sepolia", owner: string, proKey?: string, { fresh }: HoldingsOptions = {}): Promise<Holding[]> {
   const host = proKey
     ? `api.blockscout.com/${chain === "base" ? "8453" : "84532"}`
     : chain === "base"
@@ -380,7 +388,7 @@ async function blockscoutHoldings(chain: "base" | "base-sepolia", owner: string,
   let next: Record<string, string> | null = null;
   for (let page = 0; page < 4; page++) {
     const qs: URLSearchParams = new URLSearchParams({ type: "ERC-20", ...(next ?? {}), ...(proKey ? { apikey: proKey } : {}) });
-    const res: Page = await cached<Page>(`bs:${chain}:${owner}:${qs}`, 30_000, () =>
+    const res: Page = await maybeCached<Page>(fresh, `bs:${chain}:${owner}:${qs}`, 30_000, () =>
       getJson<Page>(
         "blockscout",
         `https://${host}/api/v2/addresses/${owner}/tokens?${qs}`,

@@ -109,12 +109,13 @@ export interface ScanResult {
   scannedAt: number;
 }
 
-export async function scanWallet(chain: ChainId, owner: string): Promise<ScanResult> {
+/** `fresh` reads the wallet's balances right now, skipping caches (see providers). */
+export async function scanWallet(chain: ChainId, owner: string, opts: { fresh?: boolean } = {}): Promise<ScanResult> {
   const info = CHAINS[chain];
   const gaps: string[] = [];
   let holdings: Holding[] = [];
-  if (info.family === "solana") holdings = await solanaHoldings(chain as "sol" | "sol-devnet", owner);
-  else holdings = await baseHoldings(chain as "base" | "base-sepolia", owner);
+  if (info.family === "solana") holdings = await solanaHoldings(chain as "sol" | "sol-devnet", owner, opts);
+  else holdings = await baseHoldings(chain as "base" | "base-sepolia", owner, opts);
 
   const entries: ScanEntry[] = [];
   if (info.network === "testnet") {

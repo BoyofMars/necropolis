@@ -91,7 +91,8 @@ export function BurialFlow() {
     queryFn: () => {
       const chain = qChain ?? (w.sol ? SOL_CHAIN : EVM_CHAIN);
       const addr = (qChain ? owner : w.sol ?? w.evm) as string;
-      return api<ScanResult>(`/api/scan?chain=${chain}&address=${addr}`);
+      // Always fresh here: this wallet may have just received test bags, and a cached scan would hide them.
+      return api<ScanResult>(`/api/scan?chain=${chain}&address=${addr}&fresh=${Date.now()}`);
     },
   });
 
@@ -532,7 +533,7 @@ function TestBagFaucet() {
   const { open } = useConnectSheet();
   const qc = useQueryClient();
   const [state, setState] = useState<"idle" | "busy" | "done" | string>("idle");
-  if (state === "done") return <span className="text-alive">Test bags sent. They appear below in a few seconds.</span>;
+  if (state === "done") return <span className="text-alive">Test bags sent. They appear below as soon as devnet confirms them, usually within seconds.</span>;
   return (
     <button
       className="font-semibold text-ember underline-offset-2 hover:underline disabled:opacity-50"
@@ -543,8 +544,9 @@ function TestBagFaucet() {
         try {
           await post("/api/faucet", { sol: w.sol, evm: w.evm });
           setState("done");
-          // New token accounts take a moment to show up on devnet RPCs; refresh the bag list a few times.
-          for (const ms of [1_500, 4_000, 8_000, 15_000]) setTimeout(() => qc.invalidateQueries({ queryKey: ["bury-holdings"] }), ms);
+          // New token accounts take a moment to show up on devnet RPCs; keep re-checking for a minute.
+          for (const ms of [1_000, 2_500, 4_000, 6_000, 8_000, 11_000, 15_000, 20_000, 26_000, 33_000, 41_000, 50_000, 60_000])
+            setTimeout(() => qc.invalidateQueries({ queryKey: ["bury-holdings"] }), ms);
         } catch (e) {
           setState((e as Error).message);
         }
