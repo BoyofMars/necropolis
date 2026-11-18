@@ -1,0 +1,16 @@
+[package]
+name = "necropolis-integration"
+description = "Sandbox tests: the compiled Necropolis contract runs the full ritual over real cross-contract calls to a stand-in MPC network."
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[dev-dependencies]
+near-workspaces = "0.24.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+anyhow = "1"
+serde_json = "1"
+sha2 = "0.10"
+bs58 = "0.5"
+hex = "0.4"
