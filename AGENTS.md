@@ -37,7 +37,7 @@ CI runs steps 1–3 on every push: [`.github/workflows/ci.yml`](.github/workflow
 ## Try the product (a browser, no wallet)
 
 1. Open https://necropolis-wine.vercel.app → **Connect** → **Use a throwaway wallet** (a Solana devnet key kept in the browser; the relayer pays every fee).
-2. `/bury` → **Claim test bags** (devnet can take a minute or two to list them) → pick a dead bag → **Review burial** → **Sign and bury**.
+2. `/bury` → **Claim test bags** (they show up within seconds) → pick a dead bag → **Review burial** → **Sign and bury**.
 3. Watch Solana finality and NEAR MPC verification; the grave is minted on NEAR testnet in about 20 s. Its page shows its keyless account `g<id>.necropolis.testnet` and its $BONES.
 4. `/crypt/<id>` opens only for the holder (signed message); `/verify` re-checks everything above live.
 

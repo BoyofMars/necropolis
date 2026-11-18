@@ -23,8 +23,10 @@ export async function GET(req: Request) {
     } else {
       chain = family === "solana" ? (NETWORK === "mainnet" ? "sol" : "sol") : "base";
     }
-    const result = await scanWallet(chain, family === "evm" ? address.toLowerCase() : address);
-    return ok(result, 20);
+    // ?fresh=… (the burial page, right after the faucet): no cache anywhere, or new bags stay hidden for up to 100 s.
+    const fresh = url.searchParams.has("fresh");
+    const result = await scanWallet(chain, family === "evm" ? address.toLowerCase() : address, { fresh });
+    return ok(result, fresh ? 0 : 20);
   } catch (e) {
     return fail(e);
   }

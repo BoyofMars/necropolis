@@ -27,10 +27,22 @@ export async function POST(req: Request) {
     if (NETWORK !== "testnet") throw new BurialError("The faucet only exists on testnet.", "MAINNET");
     const { sol, evm } = await body<{ sol?: string | null; evm?: string | null }>(req);
     const sent: { chain: string; symbol: string; tx: string }[] = [];
+    const notes: string[] = [];
     if (sol && isSolanaAddress(sol)) sent.push(...(await solanaBags(sol)));
-    if (evm && isEvmAddress(evm)) sent.push(...(await baseBags(evm.toLowerCase())));
-    if (sent.length === 0) throw new BurialError("Nothing to send: you already hold the test bags, or none are deployed for your wallet's chain.", "NOTHING");
-    return ok({ sent });
+    if (evm && isEvmAddress(evm)) {
+      // A Base problem shouldn't cost a wallet its Solana bags.
+      try {
+        sent.push(...(await baseBags(evm.toLowerCase())));
+      } catch (e) {
+        if (!(e instanceof BurialError && e.code === "RELAYER_UNFUNDED")) throw e;
+        notes.push(e.message);
+      }
+    }
+    if (sent.length === 0) {
+      if (notes.length) throw new BurialError(notes[0], "RELAYER_UNFUNDED", 503);
+      throw new BurialError("Nothing to send: you already hold the test bags, or none are deployed for your wallet's chain.", "NOTHING");
+    }
+    return ok({ sent, notes });
   } catch (e) {
     return fail(e);
   }
@@ -59,6 +71,9 @@ async function solanaBags(owner: string) {
   return symbols.map((s) => ({ chain: "sol-devnet", symbol: s, tx: sig }));
 }
 
+/** Enough for a few mints on Base Sepolia. */
+const MIN_RELAYER_WEI = 50_000_000_000_000n; // 0.00005 ETH
+
 const ERC20_MINT = parseAbi(["function mint(address to, uint256 amount)", "function balanceOf(address) view returns (uint256)"]);
 
 async function baseBags(owner: string) {
@@ -66,7 +81,11 @@ async function baseBags(owner: string) {
   if (bags.length === 0) return [];
   const rpc = http(process.env.BASE_SEPOLIA_RPC_URL);
   const pub = createPublicClient({ chain: baseSepolia, transport: rpc });
-  const wallet = createWalletClient({ account: sextonEvm(), chain: baseSepolia, transport: rpc });
+  const account = sextonEvm();
+  const wallet = createWalletClient({ account, chain: baseSepolia, transport: rpc });
+  // Minting costs the relayer Sepolia ETH; say so plainly instead of failing mid-transaction.
+  if ((await pub.getBalance({ address: account.address })) < MIN_RELAYER_WEI)
+    throw new BurialError("Base test bags are paused: the relayer is out of Sepolia ETH. Solana test bags (and the throwaway wallet) work.", "RELAYER_UNFUNDED", 503);
   const out: { chain: string; symbol: string; tx: string }[] = [];
   for (const b of bags) {
     const bal = await pub.readContract({ address: b.address as Hex, abi: ERC20_MINT, functionName: "balanceOf", args: [owner as Hex] });
