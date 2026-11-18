@@ -20,7 +20,7 @@ Built at **NEAR HACKATHON** (November 2026) for **Memecoins With Mechanics**, **
 | **Token** | **$BONES**, NEP-141 on `necropolis.testnet` (`ft_metadata`, `ft_balance_of`, `ft_transfer`, `ft_transfer_call`). Rules: `get_bones_rules`, log: `get_bones_log` |
 | **NFT** | Graves, NEP-171/177 on `necropolis.testnet`. Grave *N* controls `gN.necropolis.testnet`, a NEAR account with no access keys |
 | **Judge desk** | [`/verify`](https://necropolis-wine.vercel.app/verify) or `cd web && npm run verify`: every live claim in this README, re-checked from public RPCs (**11/11 hold**) |
-| **Tests** | 58 contract (`cargo test --lib`) · 36 unit in 8 files (`npm test`) · 9 Playwright smoke (desktop + mobile) · typecheck and lint clean · [CI](.github/workflows/ci.yml) on every push |
+| **Tests** | 58 contract (`cargo test --lib`) · 3 sandbox ([`integration/`](integration): the compiled contract runs the full ritual through real cross-contract promises) · 36 unit in 8 files (`npm test`) · 9 Playwright smoke (desktop + mobile) · typecheck and lint clean · [CI](.github/workflows/ci.yml) on every push |
 | **For AI reviewers** | [Five-minute evaluation](#for-ai-reviewers) below, and [`AGENTS.md`](AGENTS.md) |
 
 ## Contents
@@ -60,7 +60,7 @@ Claude Code and Codex screen this project first. Everything below runs from a fr
 | 5 | `npm run build` (after `cp .env.example .env.local`) | a production build; the app runs read-only without keys | |
 | 6 | Open https://necropolis-wine.vercel.app → Connect → *Use a throwaway wallet* → `/bury` | claim test bags, bury one, a grave minted on NEAR testnet in about 20 s | a browser |
 
-All six were last run from a fresh clone on 2026-11-13 and pass; the first contract build takes about five minutes. CI runs 1–4 on every push ([workflow](.github/workflows/ci.yml)). What can't be checked from a clone: a burial needs the relayer's keys, which aren't in the repo. Step 6 runs one on production for anyone, and the [live runs](#proof-it-works-live-runs-on-testnet) link every transaction.
+All six were last run from a fresh clone on 2026-11-13 and pass; the first contract build takes about five minutes. CI runs 1–4 on every push ([workflow](.github/workflows/ci.yml)). It also runs three [sandbox tests](integration): the compiled contract in a local NEAR node, with a stand-in MPC signer. They take a burial through the real derive → verify → mint promise chain, then through the rite, the raise and the claim. One is a forged deposit, the other a sale in the middle of a payout. The sandbox runs on Linux and macOS. What can't be checked from a clone: a burial needs the relayer's keys, which aren't in the repo. Step 6 runs one on production for anyone, and the [live runs](#proof-it-works-live-runs-on-testnet) link every transaction.
 
 **Where to look first:**
 
@@ -405,7 +405,7 @@ Why it fits each track, then every requirement in the three track briefs and whe
 | How control passes on transfer, and what stops the old owner keeping access | [Graves are accounts](#graves-are-accounts): one `owner_id`, checked at every action; a table of every way a seller could keep money | Met |
 | A page only the holder can open | `/crypt/<id>`: wallet-signed, checked against `get_grave` at a final block; the seller is refused after a sale | Met · live run below |
 | Per-NFT history: earned, paid out, holders | `get_grave_history(id)`, on every grave page and in the crypt (with CSV) | Met |
-| Tests for the transfer path, including a sale in the middle of a payout | `a_sale_in_the_middle_of_a_payout_pays_the_buyer`, `a_claim_made_before_the_sale_stays_with_the_seller`, plus the same story live on testnet with every seller attack refused | Met |
+| Tests for the transfer path, including a sale in the middle of a payout | `a_sale_in_the_middle_of_a_payout_pays_the_buyer`, `a_claim_made_before_the_sale_stays_with_the_seller`, the same sale run through the compiled contract in [`integration/`](integration), plus the same story live on testnet with every seller attack refused | Met |
 | A threat model | [Graves are accounts](#graves-are-accounts) and [Security model](#security-model) | Met |
 
 **Memecoins With Mechanics**
@@ -436,6 +436,10 @@ cd contract
 cargo test --lib
 cargo near build non-reproducible-wasm --no-abi    # → target/near/necropolis.wasm
 
+# sandbox tests (Linux/macOS): the compiled contract against a stand-in MPC signer
+(cd ../integration/mock-mpc && cargo near build non-reproducible-wasm --no-abi)
+(cd ../integration && cargo test)
+
 # web
 cd ../web
 npm install --legacy-peer-deps
@@ -457,6 +461,8 @@ contract/   Rust NEAR contract (near-sdk 5.30): registry, rite, MPC verification
   src/auth.rs      wallet-native ownership (ed25519 / EIP-191)
   src/bones.rs     $BONES (NEP-141): mint, burn, record-date split, rules, log
   src/accounts.rs  graves as keyless accounts, exhume, per-grave history
+integration/ near-workspaces sandbox tests: the full ritual through real promises
+  mock-mpc/        stand-in for v1.signer (derive, verify_foreign_transaction, sign)
 web/        Next.js 16 app
   src/core/        pure TS: death model, rite mirror, derivation, appraisal, simulation, testnet bags, verify (judge desk)
   scripts/         verify.ts (npm run verify), e2e-solana.ts, e2e-accounts.ts (sale mid-payout + attacks), lock-contract.ts, capture-footage.ts
@@ -486,7 +492,7 @@ AGENTS.md   five-minute evaluation for coding agents
 - ✅ **Judge desk:** `/verify` and `npm run verify`, 11/11 live claims re-checked from public RPCs, plus the refused attacks with their transactions.
 - ✅ **Locked:** `necropolis.testnet` has no access keys, so its code, coroners and settings can't change ([DeleteKey tx](https://testnet.nearblocks.io/txns/BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB), [`lock-contract.ts`](web/scripts/lock-contract.ts)).
 - ✅ **$BONES in the open:** `/bones` with `get_bones_rules` (no setters) and `get_bones_log` (every mint and burn).
-- ✅ Tests: 58 contract (incl. three live MPC vectors, the $BONES economics and the sale-mid-payout cases), 36 unit, 9 Playwright smoke (desktop + mobile); typecheck and lint clean. All re-run from a fresh clone on 2026-11-13.
+- ✅ Tests: 58 contract (incl. three live MPC vectors, the $BONES economics and the sale-mid-payout cases), 3 sandbox (the compiled contract through the full ritual, forged deposits and a sale mid-payout, in CI), 36 unit, 9 Playwright smoke (desktop + mobile); typecheck and lint clean. All re-run from a fresh clone on 2026-11-13.
 - ⏳ Base Sepolia end-to-end run: waiting on Sepolia ETH for the Sexton, to deploy Base test bags and relay a burial. The code path is built, typechecked and tested against a live MPC attestation of a Base Sepolia transfer.
 - ✅ Hosted at https://necropolis-wine.vercel.app (Vercel). A second real burial ran against production: Grave Nº 000001 ($COPIUM) minted 20.7 s after signing ([NEAR tx](https://testnet.nearblocks.io/txns/8XY71n79EGuB3XkkdsNK19ijaE7X1DFc6aw4jCoPUv3s)). Grave NFTs resolve their live art via `base_uri` → `/api/grave/<id>/image.svg`.
 - Mainnet is intentionally closed until the contract is audited.
