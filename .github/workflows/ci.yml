@@ -17,6 +17,30 @@ jobs:
       - run: cargo test --lib
         working-directory: contract
 
+  sandbox:
+    # The full ritual in a local NEAR node: the compiled contract, real
+    # cross-contract promises and callbacks, and a stand-in MPC signer.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            contract
+            integration/mock-mpc
+            integration
+      - name: Install cargo-near
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.23.0/cargo-near-installer.sh | sh
+      - name: Build the contract and the mock MPC signer
+        run: |
+          (cd contract && cargo near build non-reproducible-wasm --no-abi)
+          (cd integration/mock-mpc && cargo near build non-reproducible-wasm --no-abi)
+      - run: cargo test -- --nocapture
+        working-directory: integration
+
   web:
     runs-on: ubuntu-latest
     defaults:

@@ -34,6 +34,14 @@ Last run from a fresh clone on 2026-11-13, all passing:
 
 CI runs steps 1–3 on every push: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+The unit tests call internal functions, so they skip the cross-contract promise chain a burial goes through. CI's `sandbox` job covers that chain. It runs [`integration/`](integration/README.md): the compiled contract in a local NEAR node (near-workspaces), against a stand-in MPC signer that answers `derived_public_key`, `verify_foreign_transaction` and `sign` the way an honest network would. It takes three tests through the real promises:
+
+- the full ritual: bury, then rise, then raise, then claim
+- forged deposits, which mint nothing
+- a sale in the middle of a payout
+
+The sandbox runs on Linux and macOS. The commands are in `integration/README.md`.
+
 ## Try the product (a browser, no wallet)
 
 1. Open https://necropolis-wine.vercel.app → **Connect** → **Use a throwaway wallet** (a Solana devnet key kept in the browser; the relayer pays every fee).
@@ -56,7 +64,7 @@ CI runs steps 1–3 on every push: [`.github/workflows/ci.yml`](.github/workflow
 | Holder-only crypt, NEP-413 for NEAR accounts | `web/src/app/api/crypt/route.ts`, `web/src/server/nep413.ts` | `web/src/core/__tests__/nep413.test.ts` |
 | Nobody can change the contract: no access keys, and its owner is itself | `web/scripts/lock-contract.ts` | `npm run verify` → lock; DeleteKey tx `BGqCS9F98vw8BzBfBxdy2asoB4Bpt6TSzmiBF9QdBkUB` |
 
-Test names worth reading (`contract/src/tests.rs`): `a_sale_in_the_middle_of_a_payout_pays_the_buyer`, `a_claim_made_before_the_sale_stays_with_the_seller`, `bones_rules_are_readable_and_every_mint_and_burn_is_logged`, `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector`, `matches_live_mpc_four_account_market_vector`.
+Test names worth reading (`contract/src/tests.rs`): `a_sale_in_the_middle_of_a_payout_pays_the_buyer`, `a_claim_made_before_the_sale_stays_with_the_seller`, `bones_rules_are_readable_and_every_mint_and_burn_is_logged`, `matches_live_mpc_base_sepolia_vector`, `matches_live_mpc_solana_devnet_vector`, `matches_live_mpc_four_account_market_vector`. In `integration/tests/ritual.rs`: `the_full_ritual_bury_rise_raise_and_claim`, `a_deposit_the_chain_does_not_hold_mints_nothing`, `a_sale_in_the_middle_of_a_payout_pays_the_buyer`.
 
 ## What can't be checked from a clone, and what's simulated
 
